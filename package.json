@@ -4,10 +4,10 @@
   "description": "Generate GitHub Readme Stats cards in GitHub Actions",
   "type": "module",
   "main": "index.js",
-  "packageManager": "pnpm@9.0.0",
   "scripts": {
     "test": "NODE_OPTIONS=--experimental-vm-modules jest --runInBand",
     "format": "prettier --write .",
+    "lint-staged": "lint-staged",
     "prepare": "husky install"
   },
   "dependencies": {
