@@ -119,5 +119,5 @@ with:
 
 ## Notes
 
-- This action uses the same renderers and fetchers as `readme-tools/github-readme-stats`.
-- For higher API limits, use a PAT with `public_repo` scope.
+- This action uses the same renderers and fetchers as [readme-tools/github-readme-stats](https://github.com/readme-tools/github-readme-stats).
+- For higher API limits, use a [PAT](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens) with `public_repo` scope.
