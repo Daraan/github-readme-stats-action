@@ -31,6 +31,9 @@ runs:
       run: node ${{ github.action_path }}/index.js
       shell: bash
       env:
+        INPUT_CARD: ${{ inputs.card }}
+        INPUT_OPTIONS: ${{ inputs.options }}
+        INPUT_PATH: ${{ inputs.path }}
         PAT_1: ${{ inputs.token || github.token }}
 branding:
   icon: bar-chart-2
