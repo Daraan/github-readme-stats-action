@@ -12,8 +12,6 @@ on:
     - cron: "0 0 * * *" # Runs once daily at midnight
   workflow_dispatch:
 
-permissions: {}
-
 jobs:
   build:
     runs-on: ubuntu-latest
