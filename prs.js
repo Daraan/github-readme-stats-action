@@ -133,6 +133,7 @@ const SEARCH_MERGED_PRS_QUERY = `
         ... on PullRequest {
           repository {
             nameWithOwner
+            isFork
             owner {
               __typename
               login
@@ -203,8 +204,9 @@ const fetchUserPRs = async (username, token, excludeList = []) => {
       const ownerLogin = node.repository.owner.login;
       const repoName = node.repository.nameWithOwner;
       const ownerType = node.repository.owner.__typename || "User";
+      const isFork = node.repository.isFork;
 
-      if (ownerLogin === username) continue; // skip own repos
+      if (ownerLogin === username && isFork) continue;
       if (shouldExcludeRepo(repoName, normalizedExclude)) continue;
 
       if (!orgMap.has(ownerLogin)) {

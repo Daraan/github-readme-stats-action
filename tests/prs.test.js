@@ -7,6 +7,7 @@ import {
   languageIconUrl,
   escapeXml,
   renderOrgCard,
+  fetchUserPRs,
   LANG_ICON_SLUGS,
   parseExcludeList,
   shouldExcludeRepo,
@@ -148,6 +149,66 @@ describe("renderOrgCard", () => {
     expect(svg).toContain("<svg");
     expect(svg).not.toContain("undefined");
     globalThis.fetch = savedFetch;
+  });
+});
+
+describe("fetchUserPRs", () => {
+  const originalFetch = globalThis.fetch;
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  test("includes non-fork user repos but skips forked ones", async () => {
+    globalThis.fetch = jest.fn(async () => ({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      json: async () => ({
+        data: {
+          search: {
+            nodes: [
+              {
+                repository: {
+                  nameWithOwner: "octo/hello-world",
+                  isFork: false,
+                  owner: {
+                    __typename: "User",
+                    login: "octo",
+                    avatarUrl: "https://avatars.githubusercontent.com/u/1",
+                    name: "Octo",
+                  },
+                  stargazerCount: 120,
+                  primaryLanguage: { name: "JavaScript" },
+                },
+              },
+              {
+                repository: {
+                  nameWithOwner: "octo/forked",
+                  isFork: true,
+                  owner: {
+                    __typename: "User",
+                    login: "octo",
+                    avatarUrl: "https://avatars.githubusercontent.com/u/1",
+                    name: "Octo",
+                  },
+                  stargazerCount: 80,
+                  primaryLanguage: { name: "TypeScript" },
+                },
+              },
+            ],
+            pageInfo: { hasNextPage: false, endCursor: null },
+          },
+        },
+      }),
+    }));
+
+    const data = await fetchUserPRs("octo", "token");
+    expect(data).toHaveLength(1);
+    expect(data[0].org).toBe("octo");
+    expect(data[0].repo).toBe("octo/hello-world");
+    expect(data[0].mergedPRs).toBe(1);
+    expect(data[0].orgDisplayName).toBe("hello-world");
   });
 });
 
