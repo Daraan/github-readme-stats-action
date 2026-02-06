@@ -169,6 +169,7 @@ describe("fetchUserPRs", () => {
           search: {
             nodes: [
               {
+                id: "pr-1",
                 repository: {
                   nameWithOwner: "octo/hello-world",
                   isFork: false,
@@ -183,6 +184,7 @@ describe("fetchUserPRs", () => {
                 },
               },
               {
+                id: "pr-2",
                 repository: {
                   nameWithOwner: "octo/hello-world",
                   isFork: false,
@@ -197,6 +199,7 @@ describe("fetchUserPRs", () => {
                 },
               },
               {
+                id: "pr-3",
                 repository: {
                   nameWithOwner: "octo/forked",
                   isFork: true,
