@@ -121,6 +121,16 @@ with:
   token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
+Profile rank icon example (embeds the user's GitHub avatar in the rank circle):
+
+```yaml
+with:
+  card: stats
+  options: username=octocat&rank_icon=profile
+  token: ${{ secrets.GITHUB_TOKEN }}
+```
+
 ## Notes
 
 - This action uses the same renderers and fetchers as [readme-tools/github-readme-stats](https://github.com/readme-tools/github-readme-stats).
+- The `rank_icon=profile` option is an action-specific extension that fetches the user's GitHub avatar and embeds it in the rank circle of the stats card.
