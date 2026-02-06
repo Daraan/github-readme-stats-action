@@ -71,6 +71,55 @@ const languageIconUrl = (language) => {
  */
 const languageColor = (language, colorMap) => colorMap[language] || "#586069";
 
+/**
+ * Parse a comma-separated exclude list into normalized entries.
+ * @param {string | undefined} value
+ * @returns {string[]}
+ */
+const parseExcludeList = (value) => {
+  if (!value) return [];
+  return value
+    .split(",")
+    .map((entry) => entry.trim().toLowerCase())
+    .filter(Boolean);
+};
+
+/**
+ * Check if a repository name should be excluded.
+ * @param {string} repoName
+ * @param {string[]} excludeList
+ * @returns {boolean}
+ */
+const shouldExcludeRepo = (repoName, excludeList) => {
+  if (!excludeList.length) return false;
+  const haystack = repoName.toLowerCase();
+  return excludeList.some((entry) => haystack.includes(entry));
+};
+
+/**
+ * Get the short repository name without owner prefix.
+ * @param {string} repoName
+ * @returns {string}
+ */
+const getRepoShortName = (repoName) => {
+  if (!repoName) return "";
+  const parts = repoName.split("/");
+  return parts[parts.length - 1] || repoName;
+};
+
+/**
+ * Resolve the display name for an org/user entry.
+ * @param {string} ownerType
+ * @param {string} orgDisplayName
+ * @param {string} repoName
+ * @returns {string}
+ */
+const resolveOrgDisplayName = (ownerType, orgDisplayName, repoName) => {
+  if (ownerType === "Organization") return orgDisplayName;
+  const repoShortName = getRepoShortName(repoName);
+  return repoShortName || orgDisplayName;
+};
+
 // ---------------------------------------------------------------------------
 // GitHub GraphQL fetcher
 // ---------------------------------------------------------------------------
@@ -85,6 +134,7 @@ const SEARCH_MERGED_PRS_QUERY = `
           repository {
             nameWithOwner
             owner {
+              __typename
               login
               avatarUrl
               ... on Organization { name }
@@ -104,15 +154,20 @@ const SEARCH_MERGED_PRS_QUERY = `
  *
  * @param {string} username GitHub username.
  * @param {string} token GitHub PAT.
+ * @param {string[]} [excludeList] List of repo name substrings to skip.
  * @returns {Promise<OrgPRData[]>} Aggregated PR data per organisation.
  */
-const fetchUserPRs = async (username, token) => {
+const fetchUserPRs = async (username, token, excludeList = []) => {
   const headers = {
     Authorization: `bearer ${token}`,
     "Content-Type": "application/json",
   };
 
-  /** @type {Map<string, { org: string; orgDisplayName: string; avatarUrl: string; repos: Map<string, { stars: number; prs: number; language: string }> }>} */
+  const normalizedExclude = excludeList
+    .map((entry) => entry.trim().toLowerCase())
+    .filter(Boolean);
+
+  /** @type {Map<string, { org: string; orgDisplayName: string; avatarUrl: string; ownerType: string; repos: Map<string, { stars: number; prs: number; language: string }> }>} */
   const orgMap = new Map();
 
   let after = null;
@@ -147,14 +202,17 @@ const fetchUserPRs = async (username, token) => {
       if (!node.repository) continue;
       const ownerLogin = node.repository.owner.login;
       const repoName = node.repository.nameWithOwner;
+      const ownerType = node.repository.owner.__typename || "User";
 
       if (ownerLogin === username) continue; // skip own repos
+      if (shouldExcludeRepo(repoName, normalizedExclude)) continue;
 
       if (!orgMap.has(ownerLogin)) {
         orgMap.set(ownerLogin, {
           org: ownerLogin,
           orgDisplayName: node.repository.owner.name || ownerLogin,
           avatarUrl: node.repository.owner.avatarUrl,
+          ownerType,
           repos: new Map(),
         });
       }
@@ -186,9 +244,14 @@ const fetchUserPRs = async (username, token) => {
         mainRepo = { name, stars: info.stars, language: info.language };
       }
     }
+    const displayName = resolveOrgDisplayName(
+      entry.ownerType,
+      entry.orgDisplayName,
+      mainRepo.name,
+    );
     result.push({
       org: entry.org,
-      orgDisplayName: entry.orgDisplayName,
+      orgDisplayName: displayName,
       avatarUrl: entry.avatarUrl,
       repo: mainRepo.name,
       stars: mainRepo.stars,
@@ -406,4 +469,8 @@ export {
   languageIconUrl,
   escapeXml,
   LANG_ICON_SLUGS,
+  parseExcludeList,
+  shouldExcludeRepo,
+  getRepoShortName,
+  resolveOrgDisplayName,
 };
