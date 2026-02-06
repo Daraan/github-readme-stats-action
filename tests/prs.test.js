@@ -132,4 +132,17 @@ describe("renderOrgCard", () => {
     const svg = await renderOrgCard(data, {}, {});
     expect(svg).toContain(">500<");
   });
+
+  test("gracefully handles fetch failure for avatar", async () => {
+    const savedFetch = globalThis.fetch;
+    globalThis.fetch = jest.fn(async () => ({
+      ok: false,
+      status: 404,
+      headers: { get: () => "image/png" },
+    }));
+    const svg = await renderOrgCard(sampleData, {}, {});
+    expect(svg).toContain("<svg");
+    expect(svg).not.toContain("undefined");
+    globalThis.fetch = savedFetch;
+  });
 });

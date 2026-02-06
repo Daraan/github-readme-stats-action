@@ -184,11 +184,9 @@ const run = async () => {
     // Load upstream language colours for fallback dots.
     let languageColors = {};
     try {
-      const colorsPath = new URL(
-        "node_modules/github-readme-stats/src/common/languageColors.json",
-        import.meta.url,
-      );
-      languageColors = JSON.parse(await readFile(colorsPath, "utf8"));
+      const colorsUrl = import.meta
+        .resolve("github-readme-stats/src/common/languageColors.json");
+      languageColors = JSON.parse(await readFile(new URL(colorsUrl), "utf8"));
     } catch {
       // non-fatal
     }
@@ -199,9 +197,8 @@ const run = async () => {
 
     const written = [];
     for (const orgData of orgs) {
-      const safeName = orgData.repo
-        ? orgData.repo.replace(/\//g, "-")
-        : orgData.org;
+      const rawName = orgData.repo ? orgData.repo : orgData.org;
+      const safeName = rawName.replace(/[^a-zA-Z0-9._-]/g, "-");
       const filePath = path.join(baseDir, `${safeName}.svg`);
       const svg = await renderOrgCard(orgData, query, languageColors);
       await writeFile(filePath, svg, "utf8");
