@@ -3,7 +3,7 @@ description: Generate GitHub Readme Stats cards in GitHub Actions.
 author: readme-tools
 inputs:
   card:
-    description: Card type to generate (stats, top-langs, pin, wakatime, gist).
+    description: Card type to generate (stats, top-langs, pin, wakatime, gist, prs).
     required: true
   options:
     description: Options for the card (query string or JSON).

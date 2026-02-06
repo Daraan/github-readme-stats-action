@@ -69,9 +69,9 @@ This action is a recommended deployment option. You can also deploy on Vercel or
 
 ## Inputs
 
-- `card` (required): Card type. Supported: `stats`, `top-langs`, `pin`, `wakatime`, `gist`.
+- `card` (required): Card type. Supported: `stats`, `top-langs`, `pin`, `wakatime`, `gist`, `prs`.
 - `options`: Card options as a query string (`key=value&...`) or JSON. If `username` is omitted, the action uses the repository owner.
-- `path`: Output path for the SVG file. Defaults to `profile/<card>.svg`.
+- `path`: Output path for the SVG file. Defaults to `profile/<card>.svg`. For the `prs` card this is the output directory (one SVG per organisation).
 - `token`: GitHub token (PAT or `GITHUB_TOKEN`). For private repo stats, use a [PAT](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens) with `repo` and `read:user` scopes.
 
 ## Examples
@@ -129,6 +129,18 @@ with:
   options: username=octocat&rank_icon=profile
   token: ${{ secrets.GITHUB_TOKEN }}
 ```
+
+PRs card example (generates one SVG per organisation the user has contributed merged PRs to):
+
+```yaml
+with:
+  card: prs
+  options: username=octocat&theme=github_dark
+  path: profile/prs
+  token: ${{ secrets.GITHUB_TOKEN }}
+```
+
+The `prs` card supports the same theme and colour options (`theme`, `title_color`, `text_color`, `icon_color`, `bg_color`, `border_color`, `hide_border`, `border_radius`) as the other cards.
 
 ## Notes
 
