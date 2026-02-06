@@ -1,5 +1,5 @@
 import core from "@actions/core";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, writeFile, readFile } from "node:fs/promises";
 import { Buffer } from "node:buffer";
 import path from "node:path";
 import statsApi from "github-readme-stats/api/index.js";
@@ -7,6 +7,7 @@ import repoApi from "github-readme-stats/api/pin.js";
 import topLangsApi from "github-readme-stats/api/top-langs.js";
 import wakatimeApi from "github-readme-stats/api/wakatime.js";
 import gistApi from "github-readme-stats/api/gist.js";
+import { fetchUserPRs, renderOrgCard } from "./prs.js";
 
 /**
  * Normalize option values to strings.
@@ -139,6 +140,7 @@ const validateCardOptions = (card, query, repoOwner) => {
     case "stats":
     case "top-langs":
     case "wakatime":
+    case "prs":
       if (!query.username) {
         throw new Error(`username is required for the ${card} card.`);
       }
@@ -163,14 +165,56 @@ const run = async () => {
   const optionsInput = core.getInput("options") || "";
   const outputPathInput = core.getInput("path");
 
+  const query = parseOptions(optionsInput);
+
+  validateCardOptions(card, query, process.env.GITHUB_REPOSITORY_OWNER);
+
+  // ---- PRs card: custom flow that produces one SVG per organisation ----
+  if (card === "prs") {
+    const token = process.env.PAT_1;
+    if (!token) {
+      throw new Error("A GitHub token is required for the PRs card.");
+    }
+
+    const orgs = await fetchUserPRs(query.username, token);
+    if (orgs.length === 0) {
+      core.warning("No merged PRs found for user outside their own repos.");
+    }
+
+    // Load upstream language colours for fallback dots.
+    let languageColors = {};
+    try {
+      const colorsUrl = import.meta
+        .resolve("github-readme-stats/src/common/languageColors.json");
+      languageColors = JSON.parse(await readFile(new URL(colorsUrl), "utf8"));
+    } catch {
+      // non-fatal
+    }
+
+    const basePath = outputPathInput || path.join("profile", "prs");
+    const baseDir = path.resolve(process.cwd(), basePath);
+    await mkdir(baseDir, { recursive: true });
+
+    const written = [];
+    for (const orgData of orgs) {
+      const rawName = orgData.repo ? orgData.repo : orgData.org;
+      const safeName = rawName.replace(/[^a-zA-Z0-9._-]/g, "-");
+      const filePath = path.join(baseDir, `${safeName}.svg`);
+      const svg = await renderOrgCard(orgData, query, languageColors);
+      await writeFile(filePath, svg, "utf8");
+      core.info(`Wrote ${filePath}`);
+      written.push(path.relative(process.cwd(), filePath));
+    }
+
+    core.setOutput("path", basePath);
+    return;
+  }
+
+  // ---- Standard card flow ----
   const handler = cardHandlers[card];
   if (!handler) {
     throw new Error(`Unsupported card type: ${card}`);
   }
-
-  const query = parseOptions(optionsInput);
-
-  validateCardOptions(card, query, process.env.GITHUB_REPOSITORY_OWNER);
 
   // Detect the custom "profile" rank_icon for the stats card.
   const useProfileIcon = card === "stats" && query.rank_icon === "profile";
