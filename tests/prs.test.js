@@ -227,6 +227,75 @@ describe("fetchUserPRs", () => {
     expect(data[0].mergedPRs).toBe(2);
     expect(data[0].orgDisplayName).toBe("hello-world");
   });
+
+  test("includes org repos and honors exclude list with fork filtering", async () => {
+    globalThis.fetch = jest.fn(async () => ({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      json: async () => ({
+        data: {
+          search: {
+            nodes: [
+              {
+                id: "pr-1",
+                repository: {
+                  nameWithOwner: "acme/rocket",
+                  isFork: false,
+                  owner: {
+                    __typename: "Organization",
+                    login: "acme",
+                    avatarUrl: "https://avatars.githubusercontent.com/u/2",
+                    name: "Acme Corp",
+                  },
+                  stargazerCount: 500,
+                  primaryLanguage: { name: "Go" },
+                },
+              },
+              {
+                id: "pr-2",
+                repository: {
+                  nameWithOwner: "octo/ignored",
+                  isFork: false,
+                  owner: {
+                    __typename: "User",
+                    login: "octo",
+                    avatarUrl: "https://avatars.githubusercontent.com/u/1",
+                    name: "Octo",
+                  },
+                  stargazerCount: 10,
+                  primaryLanguage: { name: "JavaScript" },
+                },
+              },
+              {
+                id: "pr-3",
+                repository: {
+                  nameWithOwner: "octo/forked",
+                  isFork: true,
+                  owner: {
+                    __typename: "User",
+                    login: "octo",
+                    avatarUrl: "https://avatars.githubusercontent.com/u/1",
+                    name: "Octo",
+                  },
+                  stargazerCount: 20,
+                  primaryLanguage: { name: "TypeScript" },
+                },
+              },
+            ],
+            pageInfo: { hasNextPage: false, endCursor: null },
+          },
+        },
+      }),
+    }));
+
+    const data = await fetchUserPRs("octo", "token", ["ignored"]);
+    expect(data).toHaveLength(1);
+    expect(data[0].org).toBe("acme");
+    expect(data[0].orgDisplayName).toBe("Acme Corp");
+    expect(data[0].repo).toBe("acme/rocket");
+    expect(data[0].mergedPRs).toBe(1);
+  });
 });
 
 describe("exclude list helpers", () => {
