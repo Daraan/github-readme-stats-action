@@ -10,7 +10,7 @@ inputs:
     required: false
     default: ""
   path:
-    description: Output path for SVG file (relative path; include filename with .svg).
+    description: Output path for SVG file (relative path; include filename with .svg). For prs cards, this is a filename prefix.
     required: false
     default: ""
   token:

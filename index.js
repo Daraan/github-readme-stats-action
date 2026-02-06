@@ -7,7 +7,7 @@ import repoApi from "github-readme-stats/api/pin.js";
 import topLangsApi from "github-readme-stats/api/top-langs.js";
 import wakatimeApi from "github-readme-stats/api/wakatime.js";
 import gistApi from "github-readme-stats/api/gist.js";
-import { fetchUserPRs, renderOrgCard } from "./prs.js";
+import { fetchUserPRs, renderOrgCard, parseExcludeList } from "./prs.js";
 
 /**
  * Normalize option values to strings.
@@ -176,7 +176,8 @@ const run = async () => {
       throw new Error("A GitHub token is required for the PRs card.");
     }
 
-    const orgs = await fetchUserPRs(query.username, token);
+    const excludeList = parseExcludeList(query.exclude);
+    const orgs = await fetchUserPRs(query.username, token, excludeList);
     if (orgs.length === 0) {
       core.warning("No merged PRs found for user outside their own repos.");
     }
@@ -191,22 +192,24 @@ const run = async () => {
       // non-fatal
     }
 
-    const basePath = outputPathInput || path.join("profile", "prs");
-    const baseDir = path.resolve(process.cwd(), basePath);
+    const basePrefix = outputPathInput || path.join("profile", "prs-");
+    const resolvedPrefix = path.resolve(process.cwd(), basePrefix);
+    const baseDir = path.dirname(resolvedPrefix);
+    const prefix = path.basename(resolvedPrefix);
     await mkdir(baseDir, { recursive: true });
 
     const written = [];
     for (const orgData of orgs) {
       const rawName = orgData.repo ? orgData.repo : orgData.org;
       const safeName = rawName.replace(/[^a-zA-Z0-9._-]/g, "-");
-      const filePath = path.join(baseDir, `${safeName}.svg`);
+      const filePath = path.join(baseDir, `${prefix}${safeName}.svg`);
       const svg = await renderOrgCard(orgData, query, languageColors);
       await writeFile(filePath, svg, "utf8");
       core.info(`Wrote ${filePath}`);
       written.push(path.relative(process.cwd(), filePath));
     }
 
-    core.setOutput("path", basePath);
+    core.setOutput("path", basePrefix);
     return;
   }
 

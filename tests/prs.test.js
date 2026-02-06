@@ -8,6 +8,10 @@ import {
   escapeXml,
   renderOrgCard,
   LANG_ICON_SLUGS,
+  parseExcludeList,
+  shouldExcludeRepo,
+  getRepoShortName,
+  resolveOrgDisplayName,
 } from "../prs.js";
 
 describe("escapeXml", () => {
@@ -144,5 +148,50 @@ describe("renderOrgCard", () => {
     expect(svg).toContain("<svg");
     expect(svg).not.toContain("undefined");
     globalThis.fetch = savedFetch;
+  });
+});
+
+describe("exclude list helpers", () => {
+  test("parseExcludeList normalizes comma-separated values", () => {
+    expect(parseExcludeList("pydantic, foo , ,BAR")).toEqual([
+      "pydantic",
+      "foo",
+      "bar",
+    ]);
+  });
+
+  test("shouldExcludeRepo matches substrings", () => {
+    const list = ["pydantic", "foo"];
+    expect(shouldExcludeRepo("pydantic/pydantic-core", list)).toBe(true);
+    expect(shouldExcludeRepo("foo/bar", list)).toBe(true);
+    expect(shouldExcludeRepo("python/cpython", list)).toBe(false);
+  });
+});
+
+describe("resolveOrgDisplayName", () => {
+  test("keeps organization display name", () => {
+    expect(
+      resolveOrgDisplayName(
+        "Organization",
+        "Python",
+        "python/typing_extensions",
+      ),
+    ).toBe("Python");
+  });
+
+  test("uses repo name for user-owned repos", () => {
+    expect(
+      resolveOrgDisplayName(
+        "User",
+        "swansonk14",
+        "swansonk14/typed-argument-parser",
+      ),
+    ).toBe("typed-argument-parser");
+  });
+});
+
+describe("getRepoShortName", () => {
+  test("returns repo name without owner prefix", () => {
+    expect(getRepoShortName("python/cpython")).toBe("cpython");
   });
 });
