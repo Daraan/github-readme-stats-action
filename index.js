@@ -81,24 +81,35 @@ const fetchAvatarDataUri = async (username) => {
  * Build an SVG snippet that renders a circular profile image inside the rank
  * circle. The coordinates match those used by the upstream "github" rank icon.
  * @param {string} dataUri Base64-encoded data URI of the avatar.
+ * @param {string} username GitHub username, used to create a unique clipPath ID.
  * @returns {string} SVG markup.
  */
-const profileRankIcon = (dataUri) =>
-  `<svg x="-38" y="-30" width="66" height="66" data-testid="profile-rank-icon">` +
-  `<defs><clipPath id="profile-clip"><circle cx="33" cy="33" r="33"/></clipPath></defs>` +
-  `<image width="66" height="66" href="${dataUri}" clip-path="url(#profile-clip)"/>` +
-  `</svg>`;
+const profileRankIcon = (dataUri, username) => {
+  const clipId = `profile-clip-${username}`;
+  return (
+    `<svg x="-38" y="-30" width="66" height="66" data-testid="profile-rank-icon">` +
+    `<defs><clipPath id="${clipId}"><circle cx="33" cy="33" r="33"/></clipPath></defs>` +
+    `<image width="66" height="66" href="${dataUri}" clip-path="url(#${clipId})"/>` +
+    `</svg>`
+  );
+};
 
 /**
  * Replace the upstream "github" rank icon SVG element with a profile image.
+ *
+ * This relies on the upstream stats card emitting an element with
+ * `data-testid="github-rank-icon"`.  If the upstream markup changes the
+ * replacement will be a no-op and the original SVG is returned unmodified.
+ *
  * @param {string} svg Full SVG string produced by the stats card renderer.
  * @param {string} dataUri Base64-encoded data URI of the avatar.
+ * @param {string} username GitHub username for a unique clipPath ID.
  * @returns {string} Modified SVG string.
  */
-const injectProfileIcon = (svg, dataUri) => {
+const injectProfileIcon = (svg, dataUri, username) => {
   return svg.replace(
     /<svg[^>]*data-testid="github-rank-icon"[^>]*>[\s\S]*?<\/svg>/,
-    profileRankIcon(dataUri),
+    profileRankIcon(dataUri, username),
   );
 };
 
@@ -189,7 +200,7 @@ const run = async () => {
 
   if (useProfileIcon) {
     const dataUri = await fetchAvatarDataUri(query.username);
-    svg = injectProfileIcon(svg, dataUri);
+    svg = injectProfileIcon(svg, dataUri, query.username);
   }
 
   await writeFile(outputPath, svg, "utf8");
