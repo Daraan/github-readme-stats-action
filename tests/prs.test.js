@@ -184,6 +184,20 @@ describe("fetchUserPRs", () => {
               },
               {
                 repository: {
+                  nameWithOwner: "octo/hello-world",
+                  isFork: false,
+                  owner: {
+                    __typename: "User",
+                    login: "octo",
+                    avatarUrl: "https://avatars.githubusercontent.com/u/1",
+                    name: "Octo",
+                  },
+                  stargazerCount: 120,
+                  primaryLanguage: { name: "JavaScript" },
+                },
+              },
+              {
+                repository: {
                   nameWithOwner: "octo/forked",
                   isFork: true,
                   owner: {
@@ -207,7 +221,7 @@ describe("fetchUserPRs", () => {
     expect(data).toHaveLength(1);
     expect(data[0].org).toBe("octo");
     expect(data[0].repo).toBe("octo/hello-world");
-    expect(data[0].mergedPRs).toBe(1);
+    expect(data[0].mergedPRs).toBe(2);
     expect(data[0].orgDisplayName).toBe("hello-world");
   });
 });
