@@ -152,7 +152,7 @@ const SEARCH_MERGED_PRS_QUERY = `
 /**
  * @typedef {Object} UserPRsResult
  * @property {OrgPRData[]} external - PRs to external organizations/users.
- * @property {OrgPRData | null} own - PRs to user's own non-fork repos (null if none).
+ * @property {OrgPRData[]} own - PRs to user's own non-fork repos.
  */
 
 /**
@@ -290,32 +290,23 @@ const fetchUserPRs = async (username, token, excludeList = []) => {
   // Sort descending by merged PRs.
   externalResult.sort((a, b) => b.mergedPRs - a.mergedPRs);
 
-  // Create own repos entry if there are any
-  let ownResult = null;
-  if (ownReposMap.size > 0) {
-    let mainRepo = { name: "", stars: 0, language: "" };
-    let totalPRs = 0;
-    for (const [name, info] of ownReposMap) {
-      totalPRs += info.prs;
-      if (info.stars > mainRepo.stars) {
-        mainRepo = { name, stars: info.stars, language: info.language };
-      }
-    }
-    const displayName = getRepoShortName(mainRepo.name);
-
-    // Use GitHub's username-based avatar URL
-    let userAvatarUrl = `https://github.com/${username}.png`;
-
-    ownResult = {
+  // Create entries for each of the user's own repos (non-fork)
+  /** @type {OrgPRData[]} */
+  const ownResult = [];
+  for (const [name, info] of ownReposMap) {
+    ownResult.push({
       org: username,
-      orgDisplayName: displayName,
-      avatarUrl: userAvatarUrl,
-      repo: mainRepo.name,
-      stars: mainRepo.stars,
-      mergedPRs: totalPRs,
-      language: mainRepo.language,
-    };
+      orgDisplayName: getRepoShortName(name),
+      avatarUrl: `https://github.com/${username}.png`,
+      repo: name,
+      stars: info.stars,
+      mergedPRs: info.prs,
+      language: info.language,
+    });
   }
+
+  // Sort own repos descending by merged PRs to mirror external ordering.
+  ownResult.sort((a, b) => b.mergedPRs - a.mergedPRs);
 
   return {
     external: externalResult,

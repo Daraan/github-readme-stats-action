@@ -179,10 +179,7 @@ const run = async () => {
     const excludeList = parseExcludeList(query.exclude);
     const result = await fetchUserPRs(query.username, token, excludeList);
 
-    const allOrgs = [...result.external];
-    if (result.own) {
-      allOrgs.push(result.own);
-    }
+    const allOrgs = [...result.external, ...result.own];
 
     if (allOrgs.length === 0) {
       core.warning(
@@ -219,12 +216,12 @@ const run = async () => {
       written.push(path.relative(process.cwd(), filePath));
     }
 
-    // Generate card for user's own non-fork repos
-    if (result.own) {
-      const rawName = result.own.repo ? result.own.repo : result.own.org;
+    // Generate cards for user's own non-fork repos
+    for (const ownData of result.own) {
+      const rawName = ownData.repo ? ownData.repo : ownData.org;
       const safeName = rawName.replace(/[^a-zA-Z0-9._-]/g, "-");
       const filePath = path.join(baseDir, `${prefix}own-${safeName}.svg`);
-      const svg = await renderOrgCard(result.own, query, languageColors);
+      const svg = await renderOrgCard(ownData, query, languageColors);
       await writeFile(filePath, svg, "utf8");
       core.info(`Wrote ${filePath}`);
       written.push(path.relative(process.cwd(), filePath));
