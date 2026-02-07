@@ -113,6 +113,13 @@ describe("renderOrgCard", () => {
     expect(svg).toContain("Python PR Card");
   });
 
+  test("adds white background behind avatar image", async () => {
+    const svg = await renderOrgCard(sampleData, {}, {});
+    expect(svg).toContain(
+      '<rect x="20" y="20" width="60" height="60" rx="8" fill="#fff"/>',
+    );
+  });
+
   test("applies theme colors", async () => {
     const svg = await renderOrgCard(sampleData, { theme: "dark" }, {});
     expect(svg).toContain("#151515"); // dark bg

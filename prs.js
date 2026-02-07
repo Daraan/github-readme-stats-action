@@ -376,6 +376,7 @@ const renderOrgCard = async (data, options, languageColors) => {
           <rect x="20" y="20" width="${avatarSize}" height="${avatarSize}" rx="8"/>
         </clipPath>
       </defs>
+      <rect x="20" y="20" width="${avatarSize}" height="${avatarSize}" rx="8" fill="#fff"/>
       <image x="20" y="20" width="${avatarSize}" height="${avatarSize}"
              href="${avatarDataUri}" clip-path="url(#${clipId})"/>`
     : "";
