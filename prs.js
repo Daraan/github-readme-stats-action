@@ -150,13 +150,20 @@ const SEARCH_MERGED_PRS_QUERY = `
 `;
 
 /**
+ * @typedef {Object} UserPRsResult
+ * @property {OrgPRData[]} external - PRs to external organizations/users.
+ * @property {OrgPRData | null} own - PRs to user's own non-fork repos (null if none).
+ */
+
+/**
  * Fetch merged PRs for a user from GitHub GraphQL API.
  * Paginates automatically.
+ * Separates PRs to external repos from PRs to user's own non-fork repos.
  *
  * @param {string} username GitHub username.
  * @param {string} token GitHub PAT.
  * @param {string[]} [excludeList] List of repo name substrings to skip.
- * @returns {Promise<OrgPRData[]>} Aggregated PR data per organisation.
+ * @returns {Promise<UserPRsResult>} Aggregated PR data separated by external and own repos.
  */
 const fetchUserPRs = async (username, token, excludeList = []) => {
   const headers = {
@@ -169,7 +176,9 @@ const fetchUserPRs = async (username, token, excludeList = []) => {
     .filter(Boolean);
 
   /** @type {Map<string, { org: string; orgDisplayName: string; avatarUrl: string; ownerType: string; repos: Map<string, { stars: number; prs: number; language: string }> }>} */
-  const orgMap = new Map();
+  const externalOrgMap = new Map();
+  /** @type {Map<string, { stars: number; prs: number; language: string }>} */
+  const ownReposMap = new Map();
 
   let after = null;
   let hasNextPage = true;
@@ -206,38 +215,54 @@ const fetchUserPRs = async (username, token, excludeList = []) => {
       const ownerType = node.repository.owner.__typename || "User";
       const isFork = node.repository.isFork;
 
-      if (ownerLogin === username && isFork) continue;
       if (shouldExcludeRepo(repoName, normalizedExclude)) continue;
 
-      if (!orgMap.has(ownerLogin)) {
-        orgMap.set(ownerLogin, {
-          org: ownerLogin,
-          orgDisplayName: node.repository.owner.name || ownerLogin,
-          avatarUrl: node.repository.owner.avatarUrl,
-          ownerType,
-          repos: new Map(),
-        });
-      }
+      // Separate user's own repos from external repos
+      if (ownerLogin === username) {
+        // Skip forked repos owned by the user
+        if (isFork) continue;
 
-      const orgEntry = orgMap.get(ownerLogin);
-      if (!orgEntry.repos.has(repoName)) {
-        orgEntry.repos.set(repoName, {
-          stars: node.repository.stargazerCount,
-          prs: 0,
-          language: node.repository.primaryLanguage?.name || "",
-        });
+        // Track user's own non-fork repos separately
+        if (!ownReposMap.has(repoName)) {
+          ownReposMap.set(repoName, {
+            stars: node.repository.stargazerCount,
+            prs: 0,
+            language: node.repository.primaryLanguage?.name || "",
+          });
+        }
+        ownReposMap.get(repoName).prs += 1;
+      } else {
+        // Track external repos (any org/user that is not the current user)
+        if (!externalOrgMap.has(ownerLogin)) {
+          externalOrgMap.set(ownerLogin, {
+            org: ownerLogin,
+            orgDisplayName: node.repository.owner.name || ownerLogin,
+            avatarUrl: node.repository.owner.avatarUrl,
+            ownerType,
+            repos: new Map(),
+          });
+        }
+
+        const orgEntry = externalOrgMap.get(ownerLogin);
+        if (!orgEntry.repos.has(repoName)) {
+          orgEntry.repos.set(repoName, {
+            stars: node.repository.stargazerCount,
+            prs: 0,
+            language: node.repository.primaryLanguage?.name || "",
+          });
+        }
+        orgEntry.repos.get(repoName).prs += 1;
       }
-      orgEntry.repos.get(repoName).prs += 1;
     }
 
     hasNextPage = search.pageInfo.hasNextPage;
     after = search.pageInfo.endCursor;
   }
 
-  // For each org pick the "main" repo (most stars) and sum PRs.
+  // For each external org pick the "main" repo (most stars) and sum PRs.
   /** @type {OrgPRData[]} */
-  const result = [];
-  for (const entry of orgMap.values()) {
+  const externalResult = [];
+  for (const entry of externalOrgMap.values()) {
     let mainRepo = { name: "", stars: 0, language: "" };
     let totalPRs = 0;
     for (const [name, info] of entry.repos) {
@@ -251,7 +276,7 @@ const fetchUserPRs = async (username, token, excludeList = []) => {
       entry.orgDisplayName,
       mainRepo.name,
     );
-    result.push({
+    externalResult.push({
       org: entry.org,
       orgDisplayName: displayName,
       avatarUrl: entry.avatarUrl,
@@ -263,8 +288,39 @@ const fetchUserPRs = async (username, token, excludeList = []) => {
   }
 
   // Sort descending by merged PRs.
-  result.sort((a, b) => b.mergedPRs - a.mergedPRs);
-  return result;
+  externalResult.sort((a, b) => b.mergedPRs - a.mergedPRs);
+
+  // Create own repos entry if there are any
+  let ownResult = null;
+  if (ownReposMap.size > 0) {
+    let mainRepo = { name: "", stars: 0, language: "" };
+    let totalPRs = 0;
+    for (const [name, info] of ownReposMap) {
+      totalPRs += info.prs;
+      if (info.stars > mainRepo.stars) {
+        mainRepo = { name, stars: info.stars, language: info.language };
+      }
+    }
+    const displayName = getRepoShortName(mainRepo.name);
+
+    // Fetch user's avatar URL - we need to get it from the first external org or construct it
+    let userAvatarUrl = `https://avatars.githubusercontent.com/u/${username}`;
+
+    ownResult = {
+      org: username,
+      orgDisplayName: displayName,
+      avatarUrl: userAvatarUrl,
+      repo: mainRepo.name,
+      stars: mainRepo.stars,
+      mergedPRs: totalPRs,
+      language: mainRepo.language,
+    };
+  }
+
+  return {
+    external: externalResult,
+    own: ownResult,
+  };
 };
 
 // ---------------------------------------------------------------------------
