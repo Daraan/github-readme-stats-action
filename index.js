@@ -177,9 +177,17 @@ const run = async () => {
     }
 
     const excludeList = parseExcludeList(query.exclude);
-    const orgs = await fetchUserPRs(query.username, token, excludeList);
-    if (orgs.length === 0) {
-      core.warning("No merged PRs found for user outside their own repos.");
+    const result = await fetchUserPRs(query.username, token, excludeList);
+
+    const allOrgs = [...result.external];
+    if (result.own) {
+      allOrgs.push(result.own);
+    }
+
+    if (allOrgs.length === 0) {
+      core.warning(
+        "No merged PRs found for user in external organizations or own repositories.",
+      );
     }
 
     // Load upstream language colours for fallback dots.
@@ -199,11 +207,24 @@ const run = async () => {
     await mkdir(baseDir, { recursive: true });
 
     const written = [];
-    for (const orgData of orgs) {
+
+    // Generate cards for external organizations
+    for (const orgData of result.external) {
       const rawName = orgData.repo ? orgData.repo : orgData.org;
       const safeName = rawName.replace(/[^a-zA-Z0-9._-]/g, "-");
       const filePath = path.join(baseDir, `${prefix}${safeName}.svg`);
       const svg = await renderOrgCard(orgData, query, languageColors);
+      await writeFile(filePath, svg, "utf8");
+      core.info(`Wrote ${filePath}`);
+      written.push(path.relative(process.cwd(), filePath));
+    }
+
+    // Generate card for user's own non-fork repos
+    if (result.own) {
+      const rawName = result.own.repo ? result.own.repo : result.own.org;
+      const safeName = rawName.replace(/[^a-zA-Z0-9._-]/g, "-");
+      const filePath = path.join(baseDir, `${prefix}own-${safeName}.svg`);
+      const svg = await renderOrgCard(result.own, query, languageColors);
       await writeFile(filePath, svg, "utf8");
       core.info(`Wrote ${filePath}`);
       written.push(path.relative(process.cwd(), filePath));

@@ -228,11 +228,14 @@ describe("fetchUserPRs", () => {
     }));
 
     const data = await fetchUserPRs("octo", "token");
-    expect(data).toHaveLength(1);
-    expect(data[0].org).toBe("octo");
-    expect(data[0].repo).toBe("octo/hello-world");
-    expect(data[0].mergedPRs).toBe(2);
-    expect(data[0].orgDisplayName).toBe("hello-world");
+    // External should be empty (all PRs are to user's own repos)
+    expect(data.external).toHaveLength(0);
+    // Own should have the non-fork repo
+    expect(data.own).not.toBeNull();
+    expect(data.own.org).toBe("octo");
+    expect(data.own.repo).toBe("octo/hello-world");
+    expect(data.own.mergedPRs).toBe(2);
+    expect(data.own.orgDisplayName).toBe("hello-world");
   });
 
   test("includes org repos and honors exclude list with fork filtering", async () => {
@@ -297,11 +300,90 @@ describe("fetchUserPRs", () => {
     }));
 
     const data = await fetchUserPRs("octo", "token", ["ignored"]);
-    expect(data).toHaveLength(1);
-    expect(data[0].org).toBe("acme");
-    expect(data[0].orgDisplayName).toBe("Acme Corp");
-    expect(data[0].repo).toBe("acme/rocket");
-    expect(data[0].mergedPRs).toBe(1);
+    // External should have the org repo
+    expect(data.external).toHaveLength(1);
+    expect(data.external[0].org).toBe("acme");
+    expect(data.external[0].orgDisplayName).toBe("Acme Corp");
+    expect(data.external[0].repo).toBe("acme/rocket");
+    expect(data.external[0].mergedPRs).toBe(1);
+    // Own should be null (excluded and forked repos were skipped)
+    expect(data.own).toBeNull();
+  });
+
+  test("separates external PRs from own non-fork repos", async () => {
+    globalThis.fetch = jest.fn(async () => ({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      json: async () => ({
+        data: {
+          search: {
+            nodes: [
+              {
+                id: "pr-1",
+                repository: {
+                  nameWithOwner: "octo/my-project",
+                  isFork: false,
+                  owner: {
+                    __typename: "User",
+                    login: "octo",
+                    avatarUrl: "https://avatars.githubusercontent.com/u/1",
+                    name: "Octo",
+                  },
+                  stargazerCount: 50,
+                  primaryLanguage: { name: "Python" },
+                },
+              },
+              {
+                id: "pr-2",
+                repository: {
+                  nameWithOwner: "external-org/cool-repo",
+                  isFork: false,
+                  owner: {
+                    __typename: "Organization",
+                    login: "external-org",
+                    avatarUrl: "https://avatars.githubusercontent.com/u/2",
+                    name: "External Org",
+                  },
+                  stargazerCount: 1000,
+                  primaryLanguage: { name: "TypeScript" },
+                },
+              },
+              {
+                id: "pr-3",
+                repository: {
+                  nameWithOwner: "octo/my-project",
+                  isFork: false,
+                  owner: {
+                    __typename: "User",
+                    login: "octo",
+                    avatarUrl: "https://avatars.githubusercontent.com/u/1",
+                    name: "Octo",
+                  },
+                  stargazerCount: 50,
+                  primaryLanguage: { name: "Python" },
+                },
+              },
+            ],
+            pageInfo: { hasNextPage: false, endCursor: null },
+          },
+        },
+      }),
+    }));
+
+    const data = await fetchUserPRs("octo", "token");
+    // External should have the org repo only
+    expect(data.external).toHaveLength(1);
+    expect(data.external[0].org).toBe("external-org");
+    expect(data.external[0].orgDisplayName).toBe("External Org");
+    expect(data.external[0].mergedPRs).toBe(1);
+
+    // Own should have user's non-fork repos
+    expect(data.own).not.toBeNull();
+    expect(data.own.org).toBe("octo");
+    expect(data.own.repo).toBe("octo/my-project");
+    expect(data.own.mergedPRs).toBe(2);
+    expect(data.own.orgDisplayName).toBe("my-project");
   });
 });
 

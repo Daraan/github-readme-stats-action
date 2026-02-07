@@ -130,7 +130,7 @@ with:
   token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-PRs card example (generates one SVG per organisation the user has contributed merged PRs to):
+PRs card example (generates separate SVGs for external organizations and user's own non-fork repositories):
 
 ```yaml
 with:
@@ -139,6 +139,11 @@ with:
   path: profile/prs-
   token: ${{ secrets.GITHUB_TOKEN }}
 ```
+
+The `prs` card generates one SVG per external organization (where the user has contributed merged PRs) and a separate SVG for the user's own non-fork repositories (prefixed with `own-`). For example, with the path `profile/prs-`, the action will generate files like:
+
+- `profile/prs-org/repo.svg` for external contributions
+- `profile/prs-own-username/repo.svg` for PRs to the user's own repositories
 
 The `prs` card supports the same theme and colour options (`theme`, `title_color`, `text_color`, `icon_color`, `bg_color`, `border_color`, `hide_border`, `border_radius`) as the other cards. Use `exclude` with a comma-separated list (e.g. `exclude=pydantic,foo`) to skip repos containing those terms.
 
