@@ -231,11 +231,11 @@ describe("fetchUserPRs", () => {
     // External should be empty (all PRs are to user's own repos)
     expect(data.external).toHaveLength(0);
     // Own should have the non-fork repo
-    expect(data.own).not.toBeNull();
-    expect(data.own.org).toBe("octo");
-    expect(data.own.repo).toBe("octo/hello-world");
-    expect(data.own.mergedPRs).toBe(2);
-    expect(data.own.orgDisplayName).toBe("hello-world");
+    expect(data.own).toHaveLength(1);
+    expect(data.own[0].org).toBe("octo");
+    expect(data.own[0].repo).toBe("octo/hello-world");
+    expect(data.own[0].mergedPRs).toBe(2);
+    expect(data.own[0].orgDisplayName).toBe("hello-world");
   });
 
   test("includes org repos and honors exclude list with fork filtering", async () => {
@@ -306,8 +306,8 @@ describe("fetchUserPRs", () => {
     expect(data.external[0].orgDisplayName).toBe("Acme Corp");
     expect(data.external[0].repo).toBe("acme/rocket");
     expect(data.external[0].mergedPRs).toBe(1);
-    // Own should be null (excluded and forked repos were skipped)
-    expect(data.own).toBeNull();
+    // Own should be empty (excluded and forked repos were skipped)
+    expect(data.own).toHaveLength(0);
   });
 
   test("separates external PRs from own non-fork repos", async () => {
@@ -379,11 +379,85 @@ describe("fetchUserPRs", () => {
     expect(data.external[0].mergedPRs).toBe(1);
 
     // Own should have user's non-fork repos
-    expect(data.own).not.toBeNull();
-    expect(data.own.org).toBe("octo");
-    expect(data.own.repo).toBe("octo/my-project");
-    expect(data.own.mergedPRs).toBe(2);
-    expect(data.own.orgDisplayName).toBe("my-project");
+    expect(data.own).toHaveLength(1);
+    expect(data.own[0].org).toBe("octo");
+    expect(data.own[0].repo).toBe("octo/my-project");
+    expect(data.own[0].mergedPRs).toBe(2);
+    expect(data.own[0].orgDisplayName).toBe("my-project");
+  });
+
+  test("returns separate entries for each of the user's own repos", async () => {
+    globalThis.fetch = jest.fn(async () => ({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      json: async () => ({
+        data: {
+          search: {
+            nodes: [
+              {
+                id: "pr-1",
+                repository: {
+                  nameWithOwner: "octo/project-one",
+                  isFork: false,
+                  owner: {
+                    __typename: "User",
+                    login: "octo",
+                    avatarUrl: "https://avatars.githubusercontent.com/u/1",
+                    name: "Octo",
+                  },
+                  stargazerCount: 10,
+                  primaryLanguage: { name: "JavaScript" },
+                },
+              },
+              {
+                id: "pr-2",
+                repository: {
+                  nameWithOwner: "octo/project-two",
+                  isFork: false,
+                  owner: {
+                    __typename: "User",
+                    login: "octo",
+                    avatarUrl: "https://avatars.githubusercontent.com/u/1",
+                    name: "Octo",
+                  },
+                  stargazerCount: 20,
+                  primaryLanguage: { name: "Python" },
+                },
+              },
+              {
+                id: "pr-3",
+                repository: {
+                  nameWithOwner: "octo/project-one",
+                  isFork: false,
+                  owner: {
+                    __typename: "User",
+                    login: "octo",
+                    avatarUrl: "https://avatars.githubusercontent.com/u/1",
+                    name: "Octo",
+                  },
+                  stargazerCount: 10,
+                  primaryLanguage: { name: "JavaScript" },
+                },
+              },
+            ],
+            pageInfo: { hasNextPage: false, endCursor: null },
+          },
+        },
+      }),
+    }));
+
+    const data = await fetchUserPRs("octo", "token");
+    expect(data.external).toHaveLength(0);
+    expect(data.own).toHaveLength(2);
+    const projectOne = data.own.find(
+      (entry) => entry.repo === "octo/project-one",
+    );
+    const projectTwo = data.own.find(
+      (entry) => entry.repo === "octo/project-two",
+    );
+    expect(projectOne?.mergedPRs).toBe(2);
+    expect(projectTwo?.mergedPRs).toBe(1);
   });
 });
 
