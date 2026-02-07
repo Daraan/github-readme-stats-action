@@ -185,7 +185,9 @@ const run = async () => {
     }
 
     if (allOrgs.length === 0) {
-      core.warning("No merged PRs found for user.");
+      core.warning(
+        "No merged PRs found for user in external organizations or own repositories.",
+      );
     }
 
     // Load upstream language colours for fallback dots.

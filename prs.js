@@ -303,8 +303,8 @@ const fetchUserPRs = async (username, token, excludeList = []) => {
     }
     const displayName = getRepoShortName(mainRepo.name);
 
-    // Fetch user's avatar URL - we need to get it from the first external org or construct it
-    let userAvatarUrl = `https://avatars.githubusercontent.com/u/${username}`;
+    // Use GitHub's username-based avatar URL
+    let userAvatarUrl = `https://github.com/${username}.png`;
 
     ownResult = {
       org: username,
