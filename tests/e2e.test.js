@@ -59,28 +59,8 @@ const e2eTest = hasPat ? test : test.skip;
 
 e2eTest("generates cards locally", async () => {
   const statsPath = path.join(buildDir, "stats.svg");
-  const langsPath = path.join(buildDir, "top-langs.svg");
-  const pinPath = path.join(
-    buildDir,
-    "pin-readme-tools-github-readme-stats.svg",
-  );
-  const wakatimePath = path.join(buildDir, "wakatime.svg");
 
   await runCard("stats", `username=${repoOwner}&show_icons=true`, statsPath);
-  await runCard(
-    "top-langs",
-    `username=${repoOwner}&layout=compact&langs_count=6`,
-    langsPath,
-  );
-  await runCard(
-    "pin",
-    "username=readme-tools&repo=github-readme-stats",
-    pinPath,
-  );
-  await runCard("wakatime", "username=MNZ&layout=compact", wakatimePath);
 
   await assertSvg(statsPath);
-  await assertSvg(langsPath);
-  await assertSvg(pinPath);
-  await assertSvg(wakatimePath);
 });

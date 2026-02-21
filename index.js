@@ -3,10 +3,6 @@ import { mkdir, writeFile, readFile } from "node:fs/promises";
 import { Buffer } from "node:buffer";
 import path from "node:path";
 import statsApi from "github-readme-stats/api/index.js";
-import repoApi from "github-readme-stats/api/pin.js";
-import topLangsApi from "github-readme-stats/api/top-langs.js";
-import wakatimeApi from "github-readme-stats/api/wakatime.js";
-import gistApi from "github-readme-stats/api/gist.js";
 import { fetchUserPRs, renderOrgCard, parseExcludeList } from "./prs.js";
 
 /**
@@ -118,10 +114,6 @@ const injectProfileIcon = (svg, dataUri, username) => {
 // TODO: Replace handler usage with a stable library API once exposed upstream.
 const cardHandlers = {
   stats: statsApi,
-  "top-langs": topLangsApi,
-  pin: repoApi,
-  wakatime: wakatimeApi,
-  gist: gistApi,
 };
 
 /**
@@ -138,21 +130,9 @@ const validateCardOptions = (card, query, repoOwner) => {
   }
   switch (card) {
     case "stats":
-    case "top-langs":
-    case "wakatime":
     case "prs":
       if (!query.username) {
         throw new Error(`username is required for the ${card} card.`);
-      }
-      break;
-    case "pin":
-      if (!query.repo) {
-        throw new Error("repo is required for the pin card.");
-      }
-      break;
-    case "gist":
-      if (!query.id) {
-        throw new Error("id is required for the gist card.");
       }
       break;
     default:
