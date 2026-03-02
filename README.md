@@ -62,7 +62,7 @@ Then embed from your profile README:
 - `card` (required): Card type. Supported: `stats`, `prs`.
 - `options`: Card options as a query string (`key=value&...`) or JSON. If `username` is omitted, the action uses the repository owner.
 - `path`: Output path for the SVG file. Defaults to `profile/<card>.svg`. For the `prs` card this is a filename prefix (one SVG per organisation).
-- `token`: GitHub token (PAT or `GITHUB_TOKEN`). For private repo stats, use a [PAT](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens) with `repo` and `read:user` scopes.
+- `token`: GitHub token (PAT or `GITHUB_TOKEN`). For private repo stats, use a [PAT](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens) with `repo` and `read:user` scopes. For any gist, use a PAT with `gist` scope.
 
 ## Examples
 
@@ -101,7 +101,12 @@ with:
 
 ### PRs card
 
-Generates one SVG per external organisation (where the user has contributed merged PRs) and a separate SVG for the user's own non-fork repositories (prefixed with `own-`).
+```yaml
+with:
+  card: gist
+  options: id=0123456789abcdef
+  token: ${{ secrets.GITHUB_TOKEN }}
+```
 
 For example, with `path: profile/prs-` the action generates files like:
 
