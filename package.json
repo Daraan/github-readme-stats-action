@@ -11,8 +11,7 @@
     "prepare": "husky install"
   },
   "dependencies": {
-    "@actions/core": "^2.0.1",
-    "github-readme-stats": "github:readme-tools/github-readme-stats"
+    "@actions/core": "^2.0.1"
   },
   "devDependencies": {
     "husky": "^9.0.11",
