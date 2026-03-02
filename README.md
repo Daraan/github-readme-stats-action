@@ -22,10 +22,11 @@ jobs:
       contents: write
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Generate stats card
-        uses: Daraan/github-readme-stats-action@v1
+        # Erliest and first stable release that supports profile picture - might be deprecated to standalone later
+        uses: Daraan/github-readme-stats-action@2009edc011f4764bf09d2044726613ef1d4cfb00
         with:
           card: stats
           options: username=${{ github.repository_owner }}&show_icons=true&rank_icon=profile
@@ -33,7 +34,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Generate PRs card
-        uses: Daraan/github-readme-stats-action@v1
+        uses: Daraan/github-readme-stats-action # Use latest version for newest PRs features
         with:
           card: prs
           options: username=${{ github.repository_owner }}&theme=default
