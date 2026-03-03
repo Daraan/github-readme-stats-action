@@ -1,4 +1,12 @@
-import { jest, test, expect, describe, beforeAll, afterAll, afterEach } from "@jest/globals";
+import {
+  jest,
+  test,
+  expect,
+  describe,
+  beforeAll,
+  afterAll,
+  afterEach,
+} from "@jest/globals";
 
 // Re-implement / import the pure helpers from prs.js for testing.
 // prs.js has side-effect-free exports so we can import directly.
@@ -14,6 +22,7 @@ import {
   shouldExcludeRepo,
   getRepoShortName,
   resolveOrgDisplayName,
+  toRawUrl,
 } from "../prs.js";
 
 describe("escapeXml", () => {
@@ -623,7 +632,12 @@ describe("renderOrgCard with custom images", () => {
       };
     });
 
-    await renderOrgCard(sampleData, {}, {}, { octocat: "https://custom.example.com/logo.png" });
+    await renderOrgCard(
+      sampleData,
+      {},
+      {},
+      { octocat: "https://custom.example.com/logo.png" },
+    );
 
     expect(fetchedUrls[0]).toBe("https://custom.example.com/logo.png");
   });
@@ -648,5 +662,73 @@ describe("renderOrgCard with custom images", () => {
     );
 
     expect(fetchedUrls[0]).toContain(sampleData.avatarUrl);
+  });
+
+  test("converts GitHub blob URL to raw URL before fetching", async () => {
+    const fetchedUrls = [];
+    globalThis.fetch = jest.fn(async (url) => {
+      fetchedUrls.push(url);
+      return {
+        ok: true,
+        status: 200,
+        headers: { get: () => "image/png" },
+        arrayBuffer: async () => new ArrayBuffer(8),
+      };
+    });
+
+    await renderOrgCard(
+      sampleData,
+      {},
+      {},
+      {
+        "octocat/MyRepo":
+          "https://github.com/octocat/MyRepo/blob/main/logo.png",
+      },
+    );
+
+    expect(fetchedUrls[0]).toBe(
+      "https://raw.githubusercontent.com/octocat/MyRepo/main/logo.png",
+    );
+  });
+});
+
+describe("toRawUrl", () => {
+  test("converts GitHub blob URL to raw.githubusercontent.com URL", () => {
+    expect(
+      toRawUrl("https://github.com/owner/repo/blob/main/images/logo.png"),
+    ).toBe("https://raw.githubusercontent.com/owner/repo/main/images/logo.png");
+  });
+
+  test("strips ?raw=true query parameter when converting", () => {
+    expect(
+      toRawUrl(
+        "https://github.com/owner/repo/blob/main/images/logo.png?raw=true",
+      ),
+    ).toBe("https://raw.githubusercontent.com/owner/repo/main/images/logo.png");
+  });
+
+  test("handles nested paths correctly", () => {
+    expect(
+      toRawUrl(
+        "https://github.com/swansonk14/typed-argument-parser/blob/main/images/tap_logo.png",
+      ),
+    ).toBe(
+      "https://raw.githubusercontent.com/swansonk14/typed-argument-parser/main/images/tap_logo.png",
+    );
+  });
+
+  test("returns non-GitHub URLs unchanged", () => {
+    const url = "https://example.com/logo.png";
+    expect(toRawUrl(url)).toBe(url);
+  });
+
+  test("returns raw.githubusercontent.com URLs unchanged", () => {
+    const url = "https://raw.githubusercontent.com/owner/repo/main/logo.png";
+    expect(toRawUrl(url)).toBe(url);
+  });
+
+  test("returns GitHub avatar URLs unchanged", () => {
+    const url = "https://avatars.githubusercontent.com/u/1525981";
+    expect(toRawUrl(url)).toBe(url);
   });
 });

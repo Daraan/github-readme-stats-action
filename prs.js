@@ -380,6 +380,24 @@ const resolveColors = (options) => {
 };
 
 /**
+ * Convert a GitHub blob URL to its raw content URL.
+ * e.g. https://github.com/owner/repo/blob/branch/path/img.png
+ *   -> https://raw.githubusercontent.com/owner/repo/branch/path/img.png
+ * Other URLs are returned unchanged.
+ * @param {string} url
+ * @returns {string}
+ */
+const toRawUrl = (url) => {
+  const match = url.match(
+    /^https:\/\/github\.com\/([^/]+\/[^/]+)\/blob\/(.+?)(\?.*)?$/,
+  );
+  if (match) {
+    return `https://raw.githubusercontent.com/${match[1]}/${match[2]}`;
+  }
+  return url;
+};
+
+/**
  * Fetch an image and return it as a Base64 data URI.
  * @param {string} url Image URL.
  * @returns {Promise<string>} data URI.
@@ -402,7 +420,12 @@ const fetchImageDataUri = async (url) => {
  * @param {Record<string, string>} [customImages] Map of repo/org names to custom image URLs.
  * @returns {Promise<string>} SVG string.
  */
-const renderOrgCard = async (data, options, languageColors, customImages = {}) => {
+const renderOrgCard = async (
+  data,
+  options,
+  languageColors,
+  customImages = {},
+) => {
   const colors = resolveColors(options);
   const borderRadius = options.border_radius || "4.5";
   const hideBorder = options.hide_border === "true";
@@ -420,7 +443,9 @@ const renderOrgCard = async (data, options, languageColors, customImages = {}) =
   // Fetch avatar (or custom image) as data URI so the SVG is self-contained.
   let avatarDataUri;
   try {
-    const imageUrl = customImageUrl || `${data.avatarUrl}?s=${avatarSize * 2}`;
+    const imageUrl = customImageUrl
+      ? toRawUrl(customImageUrl)
+      : `${data.avatarUrl}?s=${avatarSize * 2}`;
     avatarDataUri = await fetchImageDataUri(imageUrl);
   } catch {
     avatarDataUri = "";
@@ -555,4 +580,5 @@ export {
   shouldExcludeRepo,
   getRepoShortName,
   resolveOrgDisplayName,
+  toRawUrl,
 };
