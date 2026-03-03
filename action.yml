@@ -26,23 +26,23 @@ inputs:
     required: false
     default: ""
   title_color:
-    description: Title hex color (without #). Overrides `title_color` in options.
+    description: Title hex color (without \#). Overrides `title_color` in options.
     required: false
     default: ""
   text_color:
-    description: Text hex color (without #). Overrides `text_color` in options.
+    description: Text hex color (without \#). Overrides `text_color` in options.
     required: false
     default: ""
   icon_color:
-    description: Icon hex color (without #). Overrides `icon_color` in options.
+    description: Icon hex color (without \#). Overrides `icon_color` in options.
     required: false
     default: ""
   bg_color:
-    description: Background hex color (without #). Overrides `bg_color` in options.
+    description: Background hex color (without \#). Overrides `bg_color` in options.
     required: false
     default: ""
   border_color:
-    description: Border hex color (without #). Overrides `border_color` in options.
+    description: Border hex color (without \#). Overrides `border_color` in options.
     required: false
     default: ""
   hide_border:
@@ -60,6 +60,7 @@ inputs:
 outputs:
   path:
     description: Path where the SVG file was written.
+    value: ${{ steps.generate-card.outputs.path }}
 runs:
   using: composite
   steps:
@@ -72,6 +73,7 @@ runs:
       shell: bash
       working-directory: ${{ github.action_path }}
     - name: Generate card
+      id: generate-card
       run: node ${{ github.action_path }}/index.js
       shell: bash
       env:
