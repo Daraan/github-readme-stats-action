@@ -19,6 +19,7 @@ import {
   LANG_ICON_SLUGS,
   parseCustomImages,
   parseExcludeList,
+  parseIncludeList,
   shouldExcludeRepo,
   getRepoShortName,
   resolveOrgDisplayName,
@@ -730,5 +731,195 @@ describe("toRawUrl", () => {
   test("returns GitHub avatar URLs unchanged", () => {
     const url = "https://avatars.githubusercontent.com/u/1525981";
     expect(toRawUrl(url)).toBe(url);
+  });
+});
+
+describe("parseIncludeList", () => {
+  test("parses comma-separated repo names preserving case", () => {
+    expect(parseIncludeList("owner/repo, Other/Repo , ,")).toEqual([
+      "owner/repo",
+      "Other/Repo",
+    ]);
+  });
+
+  test("returns empty array for empty or undefined input", () => {
+    expect(parseIncludeList("")).toEqual([]);
+    expect(parseIncludeList(undefined)).toEqual([]);
+  });
+});
+
+describe("renderOrgCard with zero mergedPRs", () => {
+  const sampleData = {
+    org: "python",
+    orgDisplayName: "Python",
+    avatarUrl: "https://avatars.githubusercontent.com/u/1525981",
+    repo: "python/cpython",
+    stars: 65000,
+    mergedPRs: 0,
+    language: "Python",
+  };
+
+  const originalFetch = globalThis.fetch;
+
+  beforeAll(() => {
+    globalThis.fetch = jest.fn(async () => ({
+      ok: true,
+      status: 200,
+      headers: { get: () => "image/png" },
+      arrayBuffer: async () => new ArrayBuffer(8),
+    }));
+  });
+
+  afterAll(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  test("omits merged PR counter when mergedPRs is 0", async () => {
+    const svg = await renderOrgCard(sampleData, {}, {});
+    expect(svg).not.toContain("merged");
+  });
+
+  test("still shows star count when mergedPRs is 0", async () => {
+    const svg = await renderOrgCard(sampleData, {}, {});
+    expect(svg).toContain("65.0k");
+  });
+});
+
+describe("fetchUserPRs with includeList", () => {
+  const originalFetch = globalThis.fetch;
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  test("includes a fork owned by the user when specified in includeList", async () => {
+    let callCount = 0;
+    globalThis.fetch = jest.fn(async (_url, opts) => {
+      const body = JSON.parse(opts.body);
+      callCount++;
+      if (body.query.includes("SEARCH_MERGED") || body.variables?.searchQuery) {
+        // PR search - returns no PRs
+        return {
+          ok: true,
+          json: async () => ({
+            data: {
+              search: {
+                nodes: [],
+                pageInfo: { hasNextPage: false, endCursor: null },
+              },
+            },
+          }),
+        };
+      }
+      // REPO_INFO_QUERY for included repo
+      return {
+        ok: true,
+        json: async () => ({
+          data: {
+            repository: {
+              nameWithOwner: "octo/forked-repo",
+              isFork: true,
+              owner: {
+                __typename: "User",
+                login: "octo",
+                avatarUrl: "https://avatars.githubusercontent.com/u/1",
+                name: null,
+              },
+              stargazerCount: 30,
+              primaryLanguage: { name: "TypeScript" },
+            },
+          },
+        }),
+      };
+    });
+
+    const data = await fetchUserPRs("octo", "token", [], ["octo/forked-repo"]);
+    expect(data.own).toHaveLength(1);
+    expect(data.own[0].repo).toBe("octo/forked-repo");
+    expect(data.own[0].mergedPRs).toBe(0);
+  });
+
+  test("includes external repo with no merged PRs when specified in includeList", async () => {
+    globalThis.fetch = jest.fn(async (_url, opts) => {
+      const body = JSON.parse(opts.body);
+      if (body.variables?.searchQuery) {
+        return {
+          ok: true,
+          json: async () => ({
+            data: {
+              search: {
+                nodes: [],
+                pageInfo: { hasNextPage: false, endCursor: null },
+              },
+            },
+          }),
+        };
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          data: {
+            repository: {
+              nameWithOwner: "acme/rocket",
+              isFork: false,
+              owner: {
+                __typename: "Organization",
+                login: "acme",
+                avatarUrl: "https://avatars.githubusercontent.com/u/2",
+                name: "Acme Corp",
+              },
+              stargazerCount: 500,
+              primaryLanguage: { name: "Go" },
+            },
+          },
+        }),
+      };
+    });
+
+    const data = await fetchUserPRs("octo", "token", [], ["acme/rocket"]);
+    expect(data.external).toHaveLength(1);
+    expect(data.external[0].repo).toBe("acme/rocket");
+    expect(data.external[0].mergedPRs).toBe(0);
+    expect(data.external[0].orgDisplayName).toBe("Acme Corp");
+  });
+
+  test("does not duplicate a repo already present from PR search", async () => {
+    globalThis.fetch = jest.fn(async (_url, opts) => {
+      const body = JSON.parse(opts.body);
+      if (body.variables?.searchQuery) {
+        return {
+          ok: true,
+          json: async () => ({
+            data: {
+              search: {
+                nodes: [
+                  {
+                    repository: {
+                      nameWithOwner: "acme/rocket",
+                      isFork: false,
+                      owner: {
+                        __typename: "Organization",
+                        login: "acme",
+                        avatarUrl: "https://avatars.githubusercontent.com/u/2",
+                        name: "Acme Corp",
+                      },
+                      stargazerCount: 500,
+                      primaryLanguage: { name: "Go" },
+                    },
+                  },
+                ],
+                pageInfo: { hasNextPage: false, endCursor: null },
+              },
+            },
+          }),
+        };
+      }
+      // Should not be called since repo is already present
+      return { ok: true, json: async () => ({ data: { repository: null } }) };
+    });
+
+    const data = await fetchUserPRs("octo", "token", [], ["acme/rocket"]);
+    expect(data.external).toHaveLength(1);
+    expect(data.external[0].mergedPRs).toBe(1);
   });
 });

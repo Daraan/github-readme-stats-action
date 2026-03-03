@@ -1,7 +1,13 @@
 import core from "@actions/core";
 import { mkdir, writeFile, readFile } from "node:fs/promises";
 import path from "node:path";
-import { fetchUserPRs, renderOrgCard, parseExcludeList, parseCustomImages } from "./prs.js";
+import {
+  fetchUserPRs,
+  renderOrgCard,
+  parseExcludeList,
+  parseIncludeList,
+  parseCustomImages,
+} from "./prs.js";
 
 /**
  * Normalize option values to strings.
@@ -68,6 +74,7 @@ const OPTION_KEYS = [
   "hide_border",
   "border_radius",
   "exclude",
+  "includes",
 ];
 
 /**
@@ -116,8 +123,16 @@ const run = async () => {
     }
 
     const excludeList = parseExcludeList(query.exclude);
-    const customImages = parseCustomImages(core.getInput("custom_images") || "");
-    const result = await fetchUserPRs(query.username, token, excludeList);
+    const includeList = parseIncludeList(query.includes);
+    const customImages = parseCustomImages(
+      core.getInput("custom_images") || "",
+    );
+    const result = await fetchUserPRs(
+      query.username,
+      token,
+      excludeList,
+      includeList,
+    );
 
     const allOrgs = [...result.external, ...result.own];
 
@@ -150,7 +165,12 @@ const run = async () => {
       const rawName = orgData.repo ? orgData.repo : orgData.org;
       const safeName = rawName.replace(/[^a-zA-Z0-9._-]/g, "-");
       const filePath = path.join(baseDir, `${prefix}${safeName}.svg`);
-      const svg = await renderOrgCard(orgData, query, languageColors, customImages);
+      const svg = await renderOrgCard(
+        orgData,
+        query,
+        languageColors,
+        customImages,
+      );
       await writeFile(filePath, svg, "utf8");
       core.info(`Wrote ${filePath}`);
       written.push(path.relative(process.cwd(), filePath));
@@ -161,7 +181,12 @@ const run = async () => {
       const rawName = ownData.repo ? ownData.repo : ownData.org;
       const safeName = rawName.replace(/[^a-zA-Z0-9._-]/g, "-");
       const filePath = path.join(baseDir, `${prefix}own-${safeName}.svg`);
-      const svg = await renderOrgCard(ownData, query, languageColors, customImages);
+      const svg = await renderOrgCard(
+        ownData,
+        query,
+        languageColors,
+        customImages,
+      );
       await writeFile(filePath, svg, "utf8");
       core.info(`Wrote ${filePath}`);
       written.push(path.relative(process.cwd(), filePath));

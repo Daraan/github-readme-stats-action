@@ -58,6 +58,10 @@ inputs:
     description: Comma-separated repo name substrings to exclude. Overrides `exclude` in options.
     required: false
     default: ""
+  includes:
+    description: Comma-separated "owner/repo" names to always include, even if they have no merged PRs or are forks. Overrides `includes` in options.
+    required: false
+    default: ""
   custom_images:
     description: >
       Custom image URLs for specific repositories, overriding the default owner
@@ -104,6 +108,7 @@ runs:
         INPUT_HIDE_BORDER: ${{ inputs.hide_border }}
         INPUT_BORDER_RADIUS: ${{ inputs.border_radius }}
         INPUT_EXCLUDE: ${{ inputs.exclude }}
+        INPUT_INCLUDES: ${{ inputs.includes }}
 branding:
   icon: bar-chart-2
   color: blue

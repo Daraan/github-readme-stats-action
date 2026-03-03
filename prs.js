@@ -110,6 +110,19 @@ const parseExcludeList = (value) => {
 };
 
 /**
+ * Parse a comma-separated include list of repository names ("owner/repo").
+ * @param {string | undefined} value
+ * @returns {string[]}
+ */
+const parseIncludeList = (value) => {
+  if (!value) return [];
+  return value
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+};
+
+/**
  * Check if a repository name should be excluded.
  * @param {string} repoName
  * @param {string[]} excludeList
@@ -148,6 +161,23 @@ const resolveOrgDisplayName = (ownerType, orgDisplayName, repoName) => {
 // ---------------------------------------------------------------------------
 // GitHub GraphQL fetcher
 // ---------------------------------------------------------------------------
+
+const REPO_INFO_QUERY = `
+  query($owner: String!, $name: String!) {
+    repository(owner: $owner, name: $name) {
+      nameWithOwner
+      isFork
+      owner {
+        __typename
+        login
+        avatarUrl
+        ... on Organization { name }
+      }
+      stargazerCount
+      primaryLanguage { name }
+    }
+  }
+`;
 
 const SEARCH_MERGED_PRS_QUERY = `
   query($searchQuery: String!, $after: String) {
@@ -188,9 +218,15 @@ const SEARCH_MERGED_PRS_QUERY = `
  * @param {string} username GitHub username.
  * @param {string} token GitHub PAT.
  * @param {string[]} [excludeList] List of repo name substrings to skip.
+ * @param {string[]} [includeList] List of "owner/repo" names to always include.
  * @returns {Promise<UserPRsResult>} Aggregated PR data separated by external and own repos.
  */
-const fetchUserPRs = async (username, token, excludeList = []) => {
+const fetchUserPRs = async (
+  username,
+  token,
+  excludeList = [],
+  includeList = [],
+) => {
   const headers = {
     Authorization: `bearer ${token}`,
     "Content-Type": "application/json",
@@ -332,6 +368,80 @@ const fetchUserPRs = async (username, token, excludeList = []) => {
 
   // Sort own repos descending by merged PRs to mirror external ordering.
   ownResult.sort((a, b) => b.mergedPRs - a.mergedPRs);
+
+  // Process forced-include repos that may have no merged PRs or be forks.
+  for (const includeRepo of includeList) {
+    const slashIdx = includeRepo.indexOf("/");
+    if (slashIdx === -1) continue;
+    const owner = includeRepo.slice(0, slashIdx);
+    const name = includeRepo.slice(slashIdx + 1);
+    if (!owner || !name) continue;
+    const fullName = `${owner}/${name}`;
+    const fullNameLower = fullName.toLowerCase();
+
+    // Skip if already in results.
+    const alreadyExternal = externalResult.some(
+      (e) => e.repo.toLowerCase() === fullNameLower,
+    );
+    const alreadyOwn = ownResult.some(
+      (e) => e.repo.toLowerCase() === fullNameLower,
+    );
+    if (alreadyExternal || alreadyOwn) continue;
+
+    // Fetch repo info from GitHub.
+    let repoNode;
+    try {
+      const res = await fetch("https://api.github.com/graphql", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          query: REPO_INFO_QUERY,
+          variables: { owner, name },
+        }),
+      });
+      if (!res.ok) {
+        console.warn(
+          `Could not fetch included repository ${fullName}: HTTP ${res.status}`,
+        );
+        continue;
+      }
+      const json = await res.json();
+      repoNode = json.data?.repository;
+      if (!repoNode) {
+        console.warn(
+          `Included repository ${fullName} was not found on GitHub.`,
+        );
+      }
+    } catch (err) {
+      console.warn(`Failed to fetch included repository ${fullName}: ${err}`);
+      continue;
+    }
+    if (!repoNode) continue;
+
+    const ownerLogin = repoNode.owner.login;
+    const ownerType = repoNode.owner.__typename || "User";
+    const displayName = resolveOrgDisplayName(
+      ownerType,
+      repoNode.owner.name || ownerLogin,
+      repoNode.nameWithOwner,
+    );
+
+    const entry = {
+      org: ownerLogin,
+      orgDisplayName: displayName,
+      avatarUrl: repoNode.owner.avatarUrl,
+      repo: repoNode.nameWithOwner,
+      stars: repoNode.stargazerCount,
+      mergedPRs: 0,
+      language: repoNode.primaryLanguage?.name || "",
+    };
+
+    if (ownerLogin.toLowerCase() === username.toLowerCase()) {
+      ownResult.push(entry);
+    } else {
+      externalResult.push(entry);
+    }
+  }
 
   return {
     external: externalResult,
@@ -502,6 +612,14 @@ const renderOrgCard = async (
     return String(n);
   };
 
+  const mergedPRsSvg =
+    data.mergedPRs > 0
+      ? `<g transform="translate(80, 0)">
+      ${mergedIcon}
+      <text x="20" y="13" class="stat">${data.mergedPRs} merged</text>
+    </g>`
+      : "";
+
   const svg = `<svg
   width="${width}" height="${height}"
   viewBox="0 0 ${width} ${height}"
@@ -541,10 +659,7 @@ const renderOrgCard = async (
       ${starIcon}
       <text x="20" y="13" class="stat">${formatCount(data.stars)}</text>
     </g>
-    <g transform="translate(80, 0)">
-      ${mergedIcon}
-      <text x="20" y="13" class="stat">${data.mergedPRs} merged</text>
-    </g>
+    ${mergedPRsSvg}
   </g>
 </svg>`;
 
@@ -577,6 +692,7 @@ export {
   LANG_ICON_SLUGS,
   parseCustomImages,
   parseExcludeList,
+  parseIncludeList,
   shouldExcludeRepo,
   getRepoShortName,
   resolveOrgDisplayName,
