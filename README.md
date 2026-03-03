@@ -26,7 +26,8 @@ jobs:
         uses: Daraan/github-readme-stats-action
         with:
           card: prs
-          options: username=${{ github.repository_owner }}&theme=default
+          username: ${{ github.repository_owner }}
+          theme: default
           path: profile/prs- # filename prefix; one SVG per org is generated
           token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -52,9 +53,37 @@ Then embed from your profile README:
 - `path`: Output path for the SVG file. Defaults to `profile/<card>.svg`. For the `prs` card this is a filename prefix (one SVG per organisation).
 - `token`: GitHub token (PAT or `GITHUB_TOKEN`). For a PAT, use one with `repo` and `read:user` scopes.
 
+Options can also be provided as individual inputs directly in the `with:` block. These take priority over the same keys in `options`:
+
+| Input           | Description                                     |
+| --------------- | ----------------------------------------------- |
+| `username`      | GitHub username                                 |
+| `theme`         | Card theme name                                 |
+| `title_color`   | Title hex color (without `#`)                   |
+| `text_color`    | Text hex color (without `#`)                    |
+| `icon_color`    | Icon hex color (without `#`)                    |
+| `bg_color`      | Background hex color (without `#`)              |
+| `border_color`  | Border hex color (without `#`)                  |
+| `hide_border`   | Hide the card border (`true`/`false`)           |
+| `border_radius` | Card border radius                              |
+| `exclude`       | Comma-separated repo name substrings to exclude |
+
 ## Examples
 
 ### PRs card
+
+Using individual key inputs (recommended):
+
+```yaml
+with:
+  card: prs
+  username: octocat
+  theme: github_dark
+  path: profile/prs-
+  token: ${{ secrets.GITHUB_TOKEN }}
+```
+
+Using the `options` query string (also valid; individual keys take priority if both are provided):
 
 ```yaml
 with:

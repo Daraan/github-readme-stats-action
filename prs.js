@@ -1,7 +1,7 @@
 // @ts-check
 
 import { Buffer } from "node:buffer";
-import { themes } from "./themes.js";
+import { themes } from "github-readme-stats/themes/index.js";
 
 /**
  * @typedef {Object} OrgPRData

@@ -54,6 +54,23 @@ const parseOptions = (value) => {
 };
 
 /**
+ * Option keys that can be provided as individual action inputs.
+ * These take priority over the same keys in the `options` input.
+ */
+const OPTION_KEYS = [
+  "username",
+  "theme",
+  "title_color",
+  "text_color",
+  "icon_color",
+  "bg_color",
+  "border_color",
+  "hide_border",
+  "border_radius",
+  "exclude",
+];
+
+/**
  * Validate required options for each card type.
  * @param {string} card Card type.
  * @param {Record<string, string>} query Parsed options.
@@ -83,6 +100,12 @@ const run = async () => {
 
   const query = parseOptions(optionsInput);
 
+  // Collect individual key inputs; they override the same keys in `options`.
+  for (const key of OPTION_KEYS) {
+    const val = core.getInput(key);
+    if (val) query[key] = val;
+  }
+
   validateCardOptions(card, query, process.env.GITHUB_REPOSITORY_OWNER);
 
   // ---- PRs card: custom flow that produces one SVG per organisation ----
@@ -106,8 +129,9 @@ const run = async () => {
     // Load language colours for fallback dots.
     let languageColors = {};
     try {
-      const colorsPath = new URL("./languageColors.json", import.meta.url);
-      languageColors = JSON.parse(await readFile(colorsPath, "utf8"));
+      const colorsUrl = import.meta
+        .resolve("github-readme-stats/src/common/languageColors.json");
+      languageColors = JSON.parse(await readFile(new URL(colorsUrl), "utf8"));
     } catch {
       // non-fatal
     }
