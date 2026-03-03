@@ -72,6 +72,31 @@ const languageIconUrl = (language) => {
 const languageColor = (language, colorMap) => colorMap[language] || "#586069";
 
 /**
+ * Parse a custom_images mapping from YAML-like "key: value" format.
+ * Each non-blank, non-comment line should be "repo_name: image_url".
+ * Keys may be full names ("owner/repo"), short names ("repo"), or org names.
+ * @param {string | undefined} value
+ * @returns {Record<string, string>}
+ */
+const parseCustomImages = (value) => {
+  if (!value) return {};
+  const result = {};
+  for (const line of value.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const colonIndex = trimmed.indexOf(":");
+    // Need at least "key: value" – skip lines with no colon or empty value.
+    if (colonIndex === -1) continue;
+    const key = trimmed.slice(0, colonIndex).trim();
+    const val = trimmed.slice(colonIndex + 1).trim();
+    if (key && val) {
+      result[key] = val;
+    }
+  }
+  return result;
+};
+
+/**
  * Parse a comma-separated exclude list into normalized entries.
  * @param {string | undefined} value
  * @returns {string[]}
@@ -374,9 +399,10 @@ const fetchImageDataUri = async (url) => {
  * @param {OrgPRData} data Organisation PR data.
  * @param {Record<string, string>} options User options (theme, colors).
  * @param {Record<string, string>} languageColors Language-to-color mapping.
+ * @param {Record<string, string>} [customImages] Map of repo/org names to custom image URLs.
  * @returns {Promise<string>} SVG string.
  */
-const renderOrgCard = async (data, options, languageColors) => {
+const renderOrgCard = async (data, options, languageColors, customImages = {}) => {
   const colors = resolveColors(options);
   const borderRadius = options.border_radius || "4.5";
   const hideBorder = options.hide_border === "true";
@@ -385,12 +411,17 @@ const renderOrgCard = async (data, options, languageColors) => {
   const height = 100;
   const avatarSize = 60;
 
-  // Fetch avatar as data URI so the SVG is self-contained.
+  // Resolve custom image: check full repo name, short repo name, then org name.
+  const customImageUrl =
+    customImages[data.repo] ||
+    customImages[getRepoShortName(data.repo)] ||
+    customImages[data.org];
+
+  // Fetch avatar (or custom image) as data URI so the SVG is self-contained.
   let avatarDataUri;
   try {
-    avatarDataUri = await fetchImageDataUri(
-      `${data.avatarUrl}?s=${avatarSize * 2}`,
-    );
+    const imageUrl = customImageUrl || `${data.avatarUrl}?s=${avatarSize * 2}`;
+    avatarDataUri = await fetchImageDataUri(imageUrl);
   } catch {
     avatarDataUri = "";
   }
@@ -519,6 +550,7 @@ export {
   languageIconUrl,
   escapeXml,
   LANG_ICON_SLUGS,
+  parseCustomImages,
   parseExcludeList,
   shouldExcludeRepo,
   getRepoShortName,

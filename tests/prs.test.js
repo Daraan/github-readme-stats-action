@@ -1,4 +1,4 @@
-import { jest, test, expect, describe } from "@jest/globals";
+import { jest, test, expect, describe, beforeAll, afterAll, afterEach } from "@jest/globals";
 
 // Re-implement / import the pure helpers from prs.js for testing.
 // prs.js has side-effect-free exports so we can import directly.
@@ -9,6 +9,7 @@ import {
   renderOrgCard,
   fetchUserPRs,
   LANG_ICON_SLUGS,
+  parseCustomImages,
   parseExcludeList,
   shouldExcludeRepo,
   getRepoShortName,
@@ -503,5 +504,149 @@ describe("resolveOrgDisplayName", () => {
 describe("getRepoShortName", () => {
   test("returns repo name without owner prefix", () => {
     expect(getRepoShortName("python/cpython")).toBe("cpython");
+  });
+});
+
+describe("parseCustomImages", () => {
+  test("parses key: value lines", () => {
+    const input = `
+MyRepo: https://example.com/my-repo.png
+owner/OtherRepo: https://example.com/other.svg
+`;
+    const result = parseCustomImages(input);
+    expect(result["MyRepo"]).toBe("https://example.com/my-repo.png");
+    expect(result["owner/OtherRepo"]).toBe("https://example.com/other.svg");
+  });
+
+  test("ignores blank lines and comments", () => {
+    const input = `
+# this is a comment
+MyRepo: https://example.com/img.png
+
+# another comment
+`;
+    const result = parseCustomImages(input);
+    expect(Object.keys(result)).toHaveLength(1);
+    expect(result["MyRepo"]).toBe("https://example.com/img.png");
+  });
+
+  test("handles image URLs that contain colons (http/https)", () => {
+    const input = "MyRepo: https://example.com/img.png";
+    const result = parseCustomImages(input);
+    expect(result["MyRepo"]).toBe("https://example.com/img.png");
+  });
+
+  test("returns empty object for empty or undefined input", () => {
+    expect(parseCustomImages("")).toEqual({});
+    expect(parseCustomImages(undefined)).toEqual({});
+  });
+
+  test("skips lines without a colon", () => {
+    const input = "invalid-line-no-colon\nvalid: https://example.com/img.png";
+    const result = parseCustomImages(input);
+    expect(Object.keys(result)).toHaveLength(1);
+    expect(result["valid"]).toBe("https://example.com/img.png");
+  });
+});
+
+describe("renderOrgCard with custom images", () => {
+  const sampleData = {
+    org: "octocat",
+    orgDisplayName: "MyRepo",
+    avatarUrl: "https://avatars.githubusercontent.com/u/1",
+    repo: "octocat/MyRepo",
+    stars: 100,
+    mergedPRs: 5,
+    language: "Python",
+  };
+
+  const originalFetch = globalThis.fetch;
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  test("uses custom image URL instead of avatarUrl when provided by full repo name", async () => {
+    const fetchedUrls = [];
+    globalThis.fetch = jest.fn(async (url) => {
+      fetchedUrls.push(url);
+      return {
+        ok: true,
+        status: 200,
+        headers: { get: () => "image/png" },
+        arrayBuffer: async () => new ArrayBuffer(8),
+      };
+    });
+
+    await renderOrgCard(
+      sampleData,
+      {},
+      {},
+      { "octocat/MyRepo": "https://custom.example.com/logo.png" },
+    );
+
+    expect(fetchedUrls[0]).toBe("https://custom.example.com/logo.png");
+    expect(fetchedUrls[0]).not.toContain(sampleData.avatarUrl);
+  });
+
+  test("uses custom image URL when provided by short repo name", async () => {
+    const fetchedUrls = [];
+    globalThis.fetch = jest.fn(async (url) => {
+      fetchedUrls.push(url);
+      return {
+        ok: true,
+        status: 200,
+        headers: { get: () => "image/png" },
+        arrayBuffer: async () => new ArrayBuffer(8),
+      };
+    });
+
+    await renderOrgCard(
+      sampleData,
+      {},
+      {},
+      { MyRepo: "https://custom.example.com/logo.png" },
+    );
+
+    expect(fetchedUrls[0]).toBe("https://custom.example.com/logo.png");
+  });
+
+  test("uses custom image URL when provided by org name", async () => {
+    const fetchedUrls = [];
+    globalThis.fetch = jest.fn(async (url) => {
+      fetchedUrls.push(url);
+      return {
+        ok: true,
+        status: 200,
+        headers: { get: () => "image/png" },
+        arrayBuffer: async () => new ArrayBuffer(8),
+      };
+    });
+
+    await renderOrgCard(sampleData, {}, {}, { octocat: "https://custom.example.com/logo.png" });
+
+    expect(fetchedUrls[0]).toBe("https://custom.example.com/logo.png");
+  });
+
+  test("falls back to avatarUrl when no custom image matches", async () => {
+    const fetchedUrls = [];
+    globalThis.fetch = jest.fn(async (url) => {
+      fetchedUrls.push(url);
+      return {
+        ok: true,
+        status: 200,
+        headers: { get: () => "image/png" },
+        arrayBuffer: async () => new ArrayBuffer(8),
+      };
+    });
+
+    await renderOrgCard(
+      sampleData,
+      {},
+      {},
+      { "some/OtherRepo": "https://custom.example.com/logo.png" },
+    );
+
+    expect(fetchedUrls[0]).toContain(sampleData.avatarUrl);
   });
 });
