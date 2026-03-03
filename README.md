@@ -62,7 +62,9 @@ For more advanced options see the [Examples](#examples) section as well as the [
     owner/OtherRepo: https://example.com/other-logo.svg
   ```
 
-Options can also be provided as individual inputs directly in the `with:` block. These take priority over the same keys in `options`:
+Options can also be provided as individual inputs directly in the `with:` block. These take priority over the same keys in `options`.
+Style and theme settings of [github-readme-stats](https://github.com/stats-organization/github-readme-stats) are supported.
+Please refer to their documentation for usage and examples; see also [Disclaimer](#disclaimer).
 
 | Input           | Description                                     |
 | --------------- | ----------------------------------------------- |
@@ -150,7 +152,8 @@ Alternative use an `<a>` tag to link the entire card.
 
 ### Light and Dark Mode Images
 
-GitHub supports multiple images, depending on the user's theme preference. You can use this to provide optimized images for both light and dark modes, with a fallback default option:
+GitHub supports multiple images, depending on the user's theme preference.
+You can use this to provide optimized images for both light and dark modes, with a fallback default option:
 
 ```md
 <picture>
@@ -165,6 +168,36 @@ GitHub supports multiple images, depending on the user's theme preference. You c
   <img src="./profile/prs/default-ORG.svg" height="84"  alt="ORG contributions"  />
 </picture>
 ```
+
+You can automatically create all versions by using a `matrix` `strategy`:
+
+```yaml
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - theme: light
+            themeParam: '&theme=default'
+          - theme: dark
+            themeParam: '&theme=github_dark'
+          - theme: default
+            themeParam: '&theme=transparent'      # good for dark and light
+    # ...
+
+    steps:
+
+    # ...
+
+    - name: Generate Contributions
+        uses: Daraan/pr-stats-action@v1
+        with:
+           username: <Your Username>
+           options: ${{ matrix.themeParam }}
+           path: generated/prs/${{ matrix.theme }}-
+```
+
+This will create three different differently themed images, prefixed with the theme name (`light`, `dark`, `default`).
 
 ## Disclaimer
 
