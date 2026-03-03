@@ -3,8 +3,9 @@ description: Generate GitHub Readme Stats cards in GitHub Actions.
 author: readme-tools
 inputs:
   card:
-    description: Card type to generate (stats, prs).
-    required: true
+    description: Card type to generate (prs).
+    required: false
+    default: prs
   options:
     description: Options for the card (query string or JSON).
     required: false
@@ -17,9 +18,50 @@ inputs:
     description: GitHub token (PAT or GITHUB_TOKEN).
     required: false
     default: ""
+  username:
+    description: GitHub username. Overrides `username` in options.
+    required: false
+    default: ""
+  theme:
+    description: Card theme name. Overrides `theme` in options.
+    required: false
+    default: ""
+  title_color:
+    description: Title hex color (without \#). Overrides `title_color` in options.
+    required: false
+    default: ""
+  text_color:
+    description: Text hex color (without \#). Overrides `text_color` in options.
+    required: false
+    default: ""
+  icon_color:
+    description: Icon hex color (without \#). Overrides `icon_color` in options.
+    required: false
+    default: ""
+  bg_color:
+    description: Background hex color (without \#). Overrides `bg_color` in options.
+    required: false
+    default: ""
+  border_color:
+    description: Border hex color (without \#). Overrides `border_color` in options.
+    required: false
+    default: ""
+  hide_border:
+    description: Hide the card border (true/false). Overrides `hide_border` in options.
+    required: false
+    default: ""
+  border_radius:
+    description: Card border radius. Overrides `border_radius` in options.
+    required: false
+    default: ""
+  exclude:
+    description: Comma-separated repo name substrings to exclude. Overrides `exclude` in options.
+    required: false
+    default: ""
 outputs:
   path:
     description: Path where the SVG file was written.
+    value: ${{ steps.generate-card.outputs.path }}
 runs:
   using: composite
   steps:
@@ -32,6 +74,7 @@ runs:
       shell: bash
       working-directory: ${{ github.action_path }}
     - name: Generate card
+      id: generate-card
       run: node ${{ github.action_path }}/index.js
       shell: bash
       env:
@@ -39,6 +82,16 @@ runs:
         INPUT_OPTIONS: ${{ inputs.options }}
         INPUT_PATH: ${{ inputs.path }}
         PAT_1: ${{ inputs.token || github.token }}
+        INPUT_USERNAME: ${{ inputs.username }}
+        INPUT_THEME: ${{ inputs.theme }}
+        INPUT_TITLE_COLOR: ${{ inputs.title_color }}
+        INPUT_TEXT_COLOR: ${{ inputs.text_color }}
+        INPUT_ICON_COLOR: ${{ inputs.icon_color }}
+        INPUT_BG_COLOR: ${{ inputs.bg_color }}
+        INPUT_BORDER_COLOR: ${{ inputs.border_color }}
+        INPUT_HIDE_BORDER: ${{ inputs.hide_border }}
+        INPUT_BORDER_RADIUS: ${{ inputs.border_radius }}
+        INPUT_EXCLUDE: ${{ inputs.exclude }}
 branding:
   icon: bar-chart-2
   color: blue

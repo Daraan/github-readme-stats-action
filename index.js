@@ -1,8 +1,6 @@
 import core from "@actions/core";
 import { mkdir, writeFile, readFile } from "node:fs/promises";
-import { Buffer } from "node:buffer";
 import path from "node:path";
-import statsApi from "github-readme-stats/api/index.js";
 import { fetchUserPRs, renderOrgCard, parseExcludeList } from "./prs.js";
 
 /**
@@ -56,65 +54,21 @@ const parseOptions = (value) => {
 };
 
 /**
- * Fetch a GitHub user's avatar and return it as a Base64 data URI.
- * @param {string} username GitHub username.
- * @returns {Promise<string>} Data URI of the avatar image.
+ * Option keys that can be provided as individual action inputs.
+ * These take priority over the same keys in the `options` input.
  */
-const fetchAvatarDataUri = async (username) => {
-  const url = `https://github.com/${username}.png?size=150`;
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(
-      `Failed to fetch avatar for ${username}: ${response.status}`,
-    );
-  }
-  const buffer = await response.arrayBuffer();
-  const base64 = Buffer.from(buffer).toString("base64");
-  const contentType = response.headers.get("content-type") || "image/png";
-  return `data:${contentType};base64,${base64}`;
-};
-
-/**
- * Build an SVG snippet that renders a circular profile image inside the rank
- * circle. The coordinates match those used by the upstream "github" rank icon.
- * @param {string} dataUri Base64-encoded data URI of the avatar.
- * @param {string} username GitHub username, used to create a unique clipPath ID.
- * @returns {string} SVG markup.
- */
-const profileRankIcon = (dataUri, username) => {
-  const clipId = `profile-clip-${username}`;
-  return (
-    `<svg x="-38" y="-30" width="66" height="66" data-testid="profile-rank-icon">` +
-    `<defs><clipPath id="${clipId}"><circle cx="33" cy="33" r="33"/></clipPath></defs>` +
-    `<image width="66" height="66" href="${dataUri}" clip-path="url(#${clipId})"/>` +
-    `</svg>`
-  );
-};
-
-/**
- * Replace the upstream "github" rank icon SVG element with a profile image.
- *
- * This relies on the upstream stats card emitting an element with
- * `data-testid="github-rank-icon"`.  If the upstream markup changes the
- * replacement will be a no-op and the original SVG is returned unmodified.
- *
- * @param {string} svg Full SVG string produced by the stats card renderer.
- * @param {string} dataUri Base64-encoded data URI of the avatar.
- * @param {string} username GitHub username for a unique clipPath ID.
- * @returns {string} Modified SVG string.
- */
-const injectProfileIcon = (svg, dataUri, username) => {
-  return svg.replace(
-    /<svg[^>]*data-testid="github-rank-icon"[^>]*>[\s\S]*?<\/svg>/,
-    profileRankIcon(dataUri, username),
-  );
-};
-
-// Map of card types to their respective API handlers.
-// TODO: Replace handler usage with a stable library API once exposed upstream.
-const cardHandlers = {
-  stats: statsApi,
-};
+const OPTION_KEYS = [
+  "username",
+  "theme",
+  "title_color",
+  "text_color",
+  "icon_color",
+  "bg_color",
+  "border_color",
+  "hide_border",
+  "border_radius",
+  "exclude",
+];
 
 /**
  * Validate required options for each card type.
@@ -129,7 +83,6 @@ const validateCardOptions = (card, query, repoOwner) => {
     core.warning("username not provided; defaulting to repository owner.");
   }
   switch (card) {
-    case "stats":
     case "prs":
       if (!query.username) {
         throw new Error(`username is required for the ${card} card.`);
@@ -146,6 +99,12 @@ const run = async () => {
   const outputPathInput = core.getInput("path");
 
   const query = parseOptions(optionsInput);
+
+  // Collect individual key inputs; they override the same keys in `options`.
+  for (const key of OPTION_KEYS) {
+    const val = core.getInput(key);
+    if (val) query[key] = val;
+  }
 
   validateCardOptions(card, query, process.env.GITHUB_REPOSITORY_OWNER);
 
@@ -167,7 +126,7 @@ const run = async () => {
       );
     }
 
-    // Load upstream language colours for fallback dots.
+    // Load language colours for fallback dots.
     let languageColors = {};
     try {
       const colorsUrl = import.meta
@@ -211,46 +170,7 @@ const run = async () => {
     return;
   }
 
-  // ---- Standard card flow ----
-  const handler = cardHandlers[card];
-  if (!handler) {
-    throw new Error(`Unsupported card type: ${card}`);
-  }
-
-  // Detect the custom "profile" rank_icon for the stats card.
-  const useProfileIcon = card === "stats" && query.rank_icon === "profile";
-  if (useProfileIcon) {
-    // Swap to "github" so the upstream renderer produces a replaceable icon.
-    query.rank_icon = "github";
-  }
-
-  const outputPathValue =
-    outputPathInput || path.join("profile", `${card}.svg`);
-  const outputPath = path.resolve(process.cwd(), outputPathValue);
-  await mkdir(path.dirname(outputPath), { recursive: true });
-
-  let svg = "";
-  const res = {
-    setHeader: () => {},
-    send: (value) => {
-      svg = value;
-      return value;
-    },
-  };
-
-  await handler({ query }, res);
-  if (!svg) {
-    throw new Error("Card renderer returned empty output.");
-  }
-
-  if (useProfileIcon) {
-    const dataUri = await fetchAvatarDataUri(query.username);
-    svg = injectProfileIcon(svg, dataUri, query.username);
-  }
-
-  await writeFile(outputPath, svg, "utf8");
-  core.info(`Wrote ${outputPath}`);
-  core.setOutput("path", outputPathValue);
+  throw new Error(`Unsupported card type: ${card}`);
 };
 
 run().catch((error) => {

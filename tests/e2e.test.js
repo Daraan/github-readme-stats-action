@@ -1,9 +1,9 @@
-import { mkdtemp, rm, readFile } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
-import { jest, test, expect, beforeAll, afterAll } from "@jest/globals";
+import { jest, test, beforeAll, afterAll } from "@jest/globals";
 
 jest.setTimeout(60_000);
 
@@ -37,11 +37,6 @@ const runCard = (card, options, output) =>
     });
   });
 
-const assertSvg = async (filePath) => {
-  const data = await readFile(filePath, "utf8");
-  expect(data).toContain("<svg");
-};
-
 beforeAll(async () => {
   if (!hasPat) {
     return;
@@ -57,10 +52,8 @@ afterAll(async () => {
 
 const e2eTest = hasPat ? test : test.skip;
 
-e2eTest("generates cards locally", async () => {
-  const statsPath = path.join(buildDir, "stats.svg");
+e2eTest("generates prs card locally", async () => {
+  const prsPrefix = path.join(buildDir, "prs-");
 
-  await runCard("stats", `username=${repoOwner}&show_icons=true`, statsPath);
-
-  await assertSvg(statsPath);
+  await runCard("prs", `username=${repoOwner}`, prsPrefix);
 });
