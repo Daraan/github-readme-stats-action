@@ -355,13 +355,33 @@ const resolveColors = (options) => {
 };
 
 /**
+ * Convert a GitHub blob URL to the equivalent raw content URL.
+ * e.g. https://github.com/owner/repo/blob/main/path/file.png
+ *   -> https://raw.githubusercontent.com/owner/repo/main/path/file.png
+ * Non-GitHub-blob URLs are returned unchanged.
+ * @param {string} url
+ * @returns {string}
+ */
+const normalizeImageUrl = (url) => {
+  const blobMatch = url.match(
+    /^https:\/\/github\.com\/([^/]+)\/([^/]+)\/blob\/(.+?)(\?.*)?$/,
+  );
+  if (blobMatch) {
+    return `https://raw.githubusercontent.com/${blobMatch[1]}/${blobMatch[2]}/${blobMatch[3]}`;
+  }
+  return url;
+};
+
+/**
  * Fetch an image and return it as a Base64 data URI.
  * @param {string} url Image URL.
  * @returns {Promise<string>} data URI.
  */
 const fetchImageDataUri = async (url) => {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Failed to fetch image: ${url} (${res.status})`);
+  const normalized = normalizeImageUrl(url);
+  const res = await fetch(normalized);
+  if (!res.ok)
+    throw new Error(`Failed to fetch image: ${normalized} (${res.status})`);
   const buf = await res.arrayBuffer();
   const base64 = Buffer.from(buf).toString("base64");
   const ct = res.headers.get("content-type") || "image/png";
@@ -517,6 +537,7 @@ export {
   renderOrgCard,
   resolveColors,
   languageIconUrl,
+  normalizeImageUrl,
   escapeXml,
   LANG_ICON_SLUGS,
   parseExcludeList,

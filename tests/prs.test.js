@@ -13,6 +13,7 @@ import {
   shouldExcludeRepo,
   getRepoShortName,
   resolveOrgDisplayName,
+  normalizeImageUrl,
 } from "../prs.js";
 
 describe("escapeXml", () => {
@@ -503,5 +504,45 @@ describe("resolveOrgDisplayName", () => {
 describe("getRepoShortName", () => {
   test("returns repo name without owner prefix", () => {
     expect(getRepoShortName("python/cpython")).toBe("cpython");
+  });
+});
+
+describe("normalizeImageUrl", () => {
+  test("converts GitHub blob URL to raw URL", () => {
+    expect(
+      normalizeImageUrl(
+        "https://github.com/swansonk14/typed-argument-parser/blob/main/images/tap_logo.png",
+      ),
+    ).toBe(
+      "https://raw.githubusercontent.com/swansonk14/typed-argument-parser/main/images/tap_logo.png",
+    );
+  });
+
+  test("strips ?raw=true query parameter from converted URL", () => {
+    expect(
+      normalizeImageUrl(
+        "https://github.com/owner/repo/blob/main/path/img.png?raw=true",
+      ),
+    ).toBe("https://raw.githubusercontent.com/owner/repo/main/path/img.png");
+  });
+
+  test("leaves non-blob GitHub URLs unchanged", () => {
+    const url = "https://avatars.githubusercontent.com/u/1525981";
+    expect(normalizeImageUrl(url)).toBe(url);
+  });
+
+  test("leaves non-GitHub URLs unchanged", () => {
+    const url = "https://example.com/image.png";
+    expect(normalizeImageUrl(url)).toBe(url);
+  });
+
+  test("handles nested paths in blob URL", () => {
+    expect(
+      normalizeImageUrl(
+        "https://github.com/owner/repo/blob/feature/branch/deep/path/img.svg",
+      ),
+    ).toBe(
+      "https://raw.githubusercontent.com/owner/repo/feature/branch/deep/path/img.svg",
+    );
   });
 });

@@ -17,6 +17,13 @@ inputs:
     description: GitHub token (PAT or GITHUB_TOKEN).
     required: false
     default: ""
+  custom_images:
+    description: >
+      Custom image URLs to use instead of the owner's profile image for specific
+      repositories. One entry per line in the format "owner/repo: url".
+      GitHub blob URLs are automatically converted to raw content URLs.
+    required: false
+    default: ""
 outputs:
   path:
     description: Path where the SVG file was written.
@@ -38,6 +45,7 @@ runs:
         INPUT_CARD: ${{ inputs.card }}
         INPUT_OPTIONS: ${{ inputs.options }}
         INPUT_PATH: ${{ inputs.path }}
+        INPUT_CUSTOM_IMAGES: ${{ inputs.custom_images }}
         PAT_1: ${{ inputs.token || github.token }}
 branding:
   icon: bar-chart-2

@@ -56,6 +56,27 @@ const parseOptions = (value) => {
 };
 
 /**
+ * Parse custom image overrides from a multiline string.
+ * Each line should be in the format: "owner/repo: url"
+ * @param {string} value Raw input value.
+ * @returns {Record<string, string>} Map of "owner/repo" to image URL.
+ */
+const parseCustomImages = (value) => {
+  if (!value) return {};
+  const map = {};
+  for (const line of value.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    const colonIdx = trimmed.indexOf(": ");
+    if (colonIdx === -1) continue;
+    const key = trimmed.slice(0, colonIdx).trim();
+    const url = trimmed.slice(colonIdx + 2).trim();
+    if (key && url) map[key] = url;
+  }
+  return map;
+};
+
+/**
  * Fetch a GitHub user's avatar and return it as a Base64 data URI.
  * @param {string} username GitHub username.
  * @returns {Promise<string>} Data URI of the avatar image.
@@ -144,8 +165,10 @@ const run = async () => {
   const card = core.getInput("card", { required: true }).toLowerCase();
   const optionsInput = core.getInput("options") || "";
   const outputPathInput = core.getInput("path");
+  const customImagesInput = core.getInput("custom_images") || "";
 
   const query = parseOptions(optionsInput);
+  const customImages = parseCustomImages(customImagesInput);
 
   validateCardOptions(card, query, process.env.GITHUB_REPOSITORY_OWNER);
 
@@ -190,7 +213,11 @@ const run = async () => {
       const rawName = orgData.repo ? orgData.repo : orgData.org;
       const safeName = rawName.replace(/[^a-zA-Z0-9._-]/g, "-");
       const filePath = path.join(baseDir, `${prefix}${safeName}.svg`);
-      const svg = await renderOrgCard(orgData, query, languageColors);
+      const cardData =
+        customImages[rawName] !== undefined
+          ? { ...orgData, avatarUrl: customImages[rawName] }
+          : orgData;
+      const svg = await renderOrgCard(cardData, query, languageColors);
       await writeFile(filePath, svg, "utf8");
       core.info(`Wrote ${filePath}`);
       written.push(path.relative(process.cwd(), filePath));
@@ -201,7 +228,11 @@ const run = async () => {
       const rawName = ownData.repo ? ownData.repo : ownData.org;
       const safeName = rawName.replace(/[^a-zA-Z0-9._-]/g, "-");
       const filePath = path.join(baseDir, `${prefix}own-${safeName}.svg`);
-      const svg = await renderOrgCard(ownData, query, languageColors);
+      const cardData =
+        customImages[rawName] !== undefined
+          ? { ...ownData, avatarUrl: customImages[rawName] }
+          : ownData;
+      const svg = await renderOrgCard(cardData, query, languageColors);
       await writeFile(filePath, svg, "utf8");
       core.info(`Wrote ${filePath}`);
       written.push(path.relative(process.cwd(), filePath));

@@ -20,6 +20,21 @@ const injectProfileIcon = (svg, dataUri, username) => {
   );
 };
 
+const parseCustomImages = (value) => {
+  if (!value) return {};
+  const map = {};
+  for (const line of value.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    const colonIdx = trimmed.indexOf(": ");
+    if (colonIdx === -1) continue;
+    const key = trimmed.slice(0, colonIdx).trim();
+    const url = trimmed.slice(colonIdx + 2).trim();
+    if (key && url) map[key] = url;
+  }
+  return map;
+};
+
 describe("profileRankIcon", () => {
   test("returns an SVG image element with the given data URI", () => {
     const uri = "data:image/png;base64,ABC123";
@@ -80,5 +95,54 @@ describe("injectProfileIcon", () => {
       "octocat",
     );
     expect(result).toBe(noIconSvg);
+  });
+});
+
+describe("parseCustomImages", () => {
+  test("parses a single entry", () => {
+    const result = parseCustomImages(
+      "swansonk14/typed-argument-parser: https://example.com/logo.png",
+    );
+    expect(result).toEqual({
+      "swansonk14/typed-argument-parser": "https://example.com/logo.png",
+    });
+  });
+
+  test("parses multiple entries", () => {
+    const result = parseCustomImages(
+      "owner/repo-a: https://example.com/a.png\nowner/repo-b: https://example.com/b.svg",
+    );
+    expect(result).toEqual({
+      "owner/repo-a": "https://example.com/a.png",
+      "owner/repo-b": "https://example.com/b.svg",
+    });
+  });
+
+  test("ignores blank lines", () => {
+    const result = parseCustomImages(
+      "\nowner/repo: https://example.com/a.png\n\n",
+    );
+    expect(result).toEqual({ "owner/repo": "https://example.com/a.png" });
+  });
+
+  test("ignores lines without ': ' separator", () => {
+    const result = parseCustomImages("owner/repo https://example.com/a.png");
+    expect(result).toEqual({});
+  });
+
+  test("returns empty object for empty input", () => {
+    expect(parseCustomImages("")).toEqual({});
+    expect(parseCustomImages(null)).toEqual({});
+    expect(parseCustomImages(undefined)).toEqual({});
+  });
+
+  test("preserves URLs that contain ': '", () => {
+    // URL-like value with multiple colons (the first ': ' is the separator)
+    const result = parseCustomImages(
+      "owner/repo: https://example.com/path: extra",
+    );
+    expect(result).toEqual({
+      "owner/repo": "https://example.com/path: extra",
+    });
   });
 });
