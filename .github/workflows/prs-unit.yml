@@ -1,26 +1,24 @@
-name: Action E2E
+name: PRS Unit Tests
 
 on:
   push:
-    branches: [main]
-  pull_request:
+    paths:
+      - prs.js
+      - index.js
+      - action.yml
   workflow_dispatch:
 
 jobs:
-  e2e:
+  test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-
       - name: Install dependencies
         run: npm ci --ignore-scripts
         shell: bash
-
-      - name: Run E2E tests
-        run: npm test
-        env:
-          PAT_1: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REPOSITORY_OWNER: "Daraan"
+      - name: Run prs.js unit tests
+        run: npm test tests/prs.test.js
+        shell: bash
