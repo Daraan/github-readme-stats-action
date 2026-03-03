@@ -130,6 +130,38 @@ Use `exclude` with a comma-separated list (e.g. `exclude=pydantic,foo`) to skip 
 
 The `custom_images` input lets you override the avatar shown in PR cards for specific repositories or organizations. The action will check for a custom image in this order: full repo name (`owner/repo`), short repo name (`repo`), then org/user name. If no match is found, it falls back to the default avatar.
 
+## How to Use in your README.md
+
+Check out [my profile](https://github.com/Daraan/Daraan/README.md) for examples of the action and resulting PR cards in action.
+
+### Link to your PRs
+
+```md
+# Replace <ORG> with the organisation (or user) to query and <USERNAME> with your username:
+
+[![PRs At Org](./profile/prs/dark-org.svg)](https://github.com/search?q=owner%3A<ORG>>%20author%3A<USERNAME>%20is%3Amerged&type=pullrequests&s=comments&o=desc)
+```
+
+Alternative use an `<a>` tag to link the entire card.
+
+### Light and Dark Mode Images
+
+GitHub supports multiple images, depending on the user's theme preference. You can use this to provide optimized images for both light and dark modes, with a fallback default option:
+
+```md
+<picture>
+  <source
+    srcset="./profile/prs/dark-ORG.svg"
+    media="(prefers-color-scheme: dark)"
+  />
+  <source
+    srcset="./profile/prs/light-ORG.svg"
+    media="(prefers-color-scheme: light), (prefers-color-scheme: no-preference)"
+  />
+  <img src="./profile/prs/default-ORG.svg" height="84"  alt="ORG contributions"  />
+</picture>
+```
+
 ## Notes
 
 - The upstream stats card renderer is provided by [readme-tools/github-readme-stats](https://github.com/readme-tools/github-readme-stats).
